@@ -9,8 +9,10 @@ import {
   ChatThread,
   Settings,
   ChatMessage,
+  SubjectNote,
 } from "@/types";
 import { generateId, toISODate } from "@/lib/utils";
+import { deleteNoteFile, clearAllNoteFiles, saveNoteHtmlText } from "@/lib/notesDb";
 
 interface StudyStoreState {
   subjects: Subject[];
@@ -19,6 +21,7 @@ interface StudyStoreState {
   events: CalendarEvent[];
   sessions: StudySession[];
   threads: ChatThread[];
+  notes: SubjectNote[];
   settings: Settings;
   
   // Ephemeral UI states
@@ -77,6 +80,11 @@ interface StudyStoreState {
   clearThread: (threadKey: string) => void;
   deleteThread: (threadId: string) => void;
 
+  // Subject Note Actions
+  addNote: (note: Omit<SubjectNote, "id" | "createdAt" | "updatedAt">) => SubjectNote;
+  updateNote: (id: string, updates: Partial<SubjectNote>) => void;
+  deleteNote: (id: string) => void;
+
   // Settings Actions
   updateSettings: (updates: Partial<Settings>) => void;
 
@@ -112,6 +120,7 @@ export const useStudyStore = create<StudyStoreState>()(
       events: [],
       sessions: [],
       threads: [],
+      notes: [],
       settings: defaultSettings,
 
       activeVideoLecture: null,
@@ -144,11 +153,18 @@ export const useStudyStore = create<StudyStoreState>()(
       },
 
       deleteSubject: (id) => {
+        const state = get();
+        state.notes
+          .filter((n) => n.subjectId === id)
+          .forEach((n) => {
+            deleteNoteFile(n.id).catch(console.error);
+          });
         set((state) => ({
           subjects: state.subjects.filter((s) => s.id !== id),
           playlists: state.playlists.filter((p) => p.subjectId !== id),
           lectures: state.lectures.filter((l) => l.subjectId !== id),
           events: state.events.filter((e) => e.subjectId !== id),
+          notes: state.notes.filter((n) => n.subjectId !== id),
         }));
       },
 
@@ -462,6 +478,38 @@ export const useStudyStore = create<StudyStoreState>()(
         }));
       },
 
+      // Subject Note Actions
+      addNote: (data) => {
+        const now = new Date().toISOString();
+        const newNote: SubjectNote = {
+          ...data,
+          id: generateId("note"),
+          createdAt: now,
+          updatedAt: now,
+        };
+        set((state) => ({
+          notes: [newNote, ...state.notes],
+        }));
+        return newNote;
+      },
+
+      updateNote: (id, updates) => {
+        set((state) => ({
+          notes: state.notes.map((n) =>
+            n.id === id
+              ? { ...n, ...updates, updatedAt: new Date().toISOString() }
+              : n
+          ),
+        }));
+      },
+
+      deleteNote: (id) => {
+        deleteNoteFile(id).catch(console.error);
+        set((state) => ({
+          notes: state.notes.filter((n) => n.id !== id),
+        }));
+      },
+
       // Settings
       updateSettings: (updates) => {
         set((state) => ({
@@ -471,6 +519,7 @@ export const useStudyStore = create<StudyStoreState>()(
 
       // Reset
       resetAllData: () => {
+        clearAllNoteFiles().catch(console.error);
         set({
           subjects: [],
           playlists: [],
@@ -478,6 +527,7 @@ export const useStudyStore = create<StudyStoreState>()(
           events: [],
           sessions: [],
           threads: [],
+          notes: [],
           settings: defaultSettings,
           activeVideoLecture: null,
         });
@@ -493,6 +543,7 @@ export const useStudyStore = create<StudyStoreState>()(
             events: data.events || state.events,
             sessions: data.sessions || state.sessions,
             threads: data.threads || state.threads,
+            notes: data.notes || state.notes,
             settings: { ...defaultSettings, ...state.settings, ...(data.settings || {}) },
           }));
           return true;
@@ -677,12 +728,52 @@ export const useStudyStore = create<StudyStoreState>()(
           },
         ];
 
+        const demoNote1Id = generateId("note");
+        const demoNote2Id = generateId("note");
+        const demoNotes: SubjectNote[] = [
+          {
+            id: demoNote1Id,
+            subjectId: subj1Id,
+            title: "DSA Recursion & Backtracking Cheatsheet",
+            type: "html",
+            fileName: "recursion_cheatsheet.html",
+            fileSize: 3420,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            tags: ["Recursion", "Formulae", "CheatSheet"],
+            description: "Detailed HTML notes with recursive tree visualization, base conditions, and template code.",
+          },
+          {
+            id: demoNote2Id,
+            subjectId: subj2Id,
+            title: "Operating Systems Process Management Reference",
+            type: "html",
+            fileName: "os_process_states.html",
+            fileSize: 4280,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            tags: ["OS", "Processes", "PCB"],
+            description: "Process lifecycle diagrams, state transition tables, and PCB structure guide.",
+          },
+        ];
+
+        saveNoteHtmlText(
+          demoNote1Id,
+          `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:system-ui,-apple-system,sans-serif;background:#0d0d18;color:#f3f4f6;padding:28px;line-height:1.6;}h1,h2{color:#00f0ff;}pre{background:#131326;padding:14px;border-radius:8px;color:#a855f7;border:1px solid rgba(255,255,255,0.1);overflow-x:auto;}code{font-family:monospace;}.badge{background:rgba(0,240,255,0.15);color:#00f0ff;padding:4px 8px;border-radius:4px;font-size:12px;font-weight:bold;}.box{background:#111122;border-left:4px solid #00f0ff;padding:12px 16px;margin:16px 0;border-radius:0 8px 8px 0;}</style></head><body><h1>⚡ Recursion & Backtracking Cheatsheet</h1><p><span class="badge">DSA</span> <span class="badge">Master Formula</span></p><div class="box"><strong>Key Principle:</strong> Every recursive solution requires a <em>Base Case</em> to terminate and a <em>Recursive Step</em> that progresses towards the base case.</div><h2>1. General Recursion Template</h2><pre><code>function solve(n, state) {\\n    // 1. Base Case\\n    if (n === 0) return true;\\n    \\n    // 2. Choice & Exploration\\n    for (let choice of getChoices()) {\\n        makeChoice(choice);\\n        if (solve(n - 1, state)) return true;\\n        undoChoice(choice); // Backtrack step\\n    }\\n    return false;\\n}</code></pre><h2>2. Call Stack & Memory Complexity</h2><p>Maximum depth of recursion determines the auxiliary stack space: <strong>O(H)</strong> where H is recursion tree height.</p></body></html>`
+        ).catch(console.error);
+
+        saveNoteHtmlText(
+          demoNote2Id,
+          `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:system-ui,-apple-system,sans-serif;background:#0d0d18;color:#f3f4f6;padding:28px;line-height:1.6;}h1,h2{color:#a855f7;}table{width:100%;border-collapse:collapse;margin:16px 0;background:#131326;}th,td{border:1px solid rgba(255,255,255,0.1);padding:10px 14px;text-align:left;}th{background:#1e1b4b;color:#a855f7;}code{background:#1a1a2e;padding:2px 6px;border-radius:4px;color:#00f0ff;font-family:monospace;}</style></head><body><h1>🖥️ OS: Process Lifecycle & PCB</h1><p>Summary of process states in modern operating systems.</p><h2>Process States</h2><table><tr><th>State</th><th>Description</th><th>Trigger</th></tr><tr><td><code>New</code></td><td>Process being created</td><td>Program initiated</td></tr><tr><td><code>Ready</code></td><td>Waiting to be assigned to CPU</td><td>Loaded in memory</td></tr><tr><td><code>Running</code></td><td>Instructions being executed</td><td>CPU scheduler dispatched</td></tr><tr><td><code>Waiting / Blocked</code></td><td>Waiting for I/O or event</td><td>I/O request issued</td></tr><tr><td><code>Terminated</code></td><td>Finished execution</td><td>Exit system call</td></tr></table></body></html>`
+        ).catch(console.error);
+
         set({
           subjects: demoSubjects,
           playlists: demoPlaylists,
           lectures: demoLectures,
           events: demoEvents,
           sessions: demoSessions,
+          notes: demoNotes,
         });
       },
     }),
@@ -722,6 +813,7 @@ export const useStudyStore = create<StudyStoreState>()(
         sessions: state.sessions,
         threads: state.threads,
         settings: state.settings,
+        notes: state.notes,
       }),
     }
   )

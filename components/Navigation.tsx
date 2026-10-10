@@ -14,12 +14,14 @@ import {
   Timer,
   Search,
   Sparkles,
+  BookOpen,
 } from "lucide-react";
 import { useStudyStore } from "@/store/useStudyStore";
 
 const navItems = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Subjects", href: "/subjects", icon: FolderKanban },
+  { label: "Notes", href: "/notes", icon: BookOpen },
   { label: "Calendar", href: "/calendar", icon: CalendarDays },
   { label: "AI Mentor", href: "/ai-mentor", icon: BotMessageSquare, badge: "AI" },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
@@ -141,8 +143,8 @@ export function MobileTabBar() {
   const setIsAddPlaylistOpen = useStudyStore((s) => s.setIsAddPlaylistOpen);
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#07070c]/95 backdrop-blur-xl border-t border-white/[0.08] z-40 px-3 flex items-center justify-around">
-      {navItems.slice(0, 2).map((item) => {
+    <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#07070c]/95 backdrop-blur-xl border-t border-white/[0.08] z-40 px-2 flex items-center justify-around">
+      {navItems.slice(0, 3).map((item) => {
         const Icon = item.icon;
         const isActive = pathname === item.href;
         return (
@@ -154,7 +156,7 @@ export function MobileTabBar() {
             }`}
           >
             <Icon className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5">{item.label}</span>
+            <span className="text-[9px] mt-0.5 truncate max-w-[48px] text-center">{item.label}</span>
           </Link>
         );
       })}
@@ -162,13 +164,13 @@ export function MobileTabBar() {
       {/* Floating Center Plus on Mobile */}
       <button
         onClick={() => setIsAddPlaylistOpen(true)}
-        className="w-11 h-11 -mt-5 rounded-full bg-gradient-to-r from-[#00f0ff] to-[#a855f7] flex items-center justify-center text-black shadow-[0_0_15px_rgba(0,240,255,0.5)] cursor-pointer"
+        className="w-10 h-10 -mt-4 rounded-full bg-gradient-to-r from-[#00f0ff] to-[#a855f7] flex items-center justify-center text-black shadow-[0_0_15px_rgba(0,240,255,0.5)] cursor-pointer shrink-0 mx-1"
         aria-label="Add Playlist"
       >
-        <PlusCircle className="w-6 h-6 stroke-[2.5]" />
+        <PlusCircle className="w-5 h-5 stroke-[2.5]" />
       </button>
 
-      {navItems.slice(2, 5).map((item) => {
+      {[navItems[3], navItems[4], navItems[5]].map((item) => {
         const Icon = item.icon;
         const isActive = pathname === item.href;
         return (
@@ -180,7 +182,7 @@ export function MobileTabBar() {
             }`}
           >
             <Icon className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5">{item.label}</span>
+            <span className="text-[9px] mt-0.5 truncate max-w-[48px] text-center">{item.label}</span>
           </Link>
         );
       })}

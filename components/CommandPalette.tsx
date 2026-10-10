@@ -81,6 +81,7 @@ export function CommandPalette() {
   const navigationOptions = [
     { label: "Dashboard", href: "/", icon: LayoutDashboard },
     { label: "Subjects", href: "/subjects", icon: FolderKanban },
+    { label: "Notes & Reference Files", href: "/notes", icon: BookOpen },
     { label: "Calendar & Schedule", href: "/calendar", icon: CalendarDays },
     { label: "AI Mentor Doubt Solver", href: "/ai-mentor", icon: BotMessageSquare },
     { label: "Analytics & Streaks", href: "/analytics", icon: BarChart3 },

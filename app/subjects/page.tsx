@@ -2,6 +2,7 @@
 
 import React, { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   FolderKanban,
   PlusCircle,
@@ -22,6 +23,7 @@ import {
   CheckSquare,
   Square,
   Sparkles,
+  BookOpen,
 } from "lucide-react";
 import { useStudyStore } from "@/store/useStudyStore";
 import { formatDurationHuman } from "@/lib/utils";
@@ -37,6 +39,7 @@ function SubjectsContent() {
   const subjects = useStudyStore((s) => s.subjects);
   const playlists = useStudyStore((s) => s.playlists);
   const lectures = useStudyStore((s) => s.lectures);
+  const notes = useStudyStore((s) => s.notes);
   const setIsAddPlaylistOpen = useStudyStore((s) => s.setIsAddPlaylistOpen);
   const setActiveVideoLecture = useStudyStore((s) => s.setActiveVideoLecture);
   const toggleLectureComplete = useStudyStore((s) => s.toggleLectureComplete);
@@ -257,6 +260,18 @@ function SubjectsContent() {
             </div>
 
             <div className="flex items-center gap-2">
+              <Link
+                href={`/notes?subjectId=${activeSubject.id}`}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#00f0ff]/10 hover:bg-[#00f0ff]/20 border border-[#00f0ff]/30 text-[#00f0ff] transition-all cursor-pointer text-xs font-semibold"
+                title="View Subject Notes & PDFs"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Notes</span>
+                <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-[#00f0ff]/20 text-[10px] font-mono">
+                  {notes.filter((n) => n.subjectId === activeSubject.id).length}
+                </span>
+              </Link>
+
               <button
                 onClick={() =>
                   setEditingSubject({

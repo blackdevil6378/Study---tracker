@@ -42,7 +42,7 @@ const CloudSyncContext = createContext<CloudSyncContextValue>({
 
 type PersistedStudyData = Pick<
   ReturnType<typeof useStudyStore.getState>,
-  "subjects" | "playlists" | "lectures" | "events" | "sessions" | "threads" | "settings"
+  "subjects" | "playlists" | "lectures" | "events" | "sessions" | "threads" | "settings" | "notes"
 >;
 
 function withoutApiKeys(

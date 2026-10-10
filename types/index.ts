@@ -39,6 +39,22 @@ export interface Lecture {
 
 export type CalendarEventType = 'exam' | 'test' | 'revision' | 'custom';
 
+export type NoteType = 'html' | 'pdf' | 'markdown' | 'text';
+
+export interface SubjectNote {
+  id: string;
+  subjectId: string;
+  title: string;
+  type: NoteType;
+  fileName: string;
+  fileSize: number; // bytes
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
+  tags?: string[];
+  description?: string;
+  inlineContent?: string;
+}
+
 export interface CalendarEvent {
   id: string;
   title: string;
