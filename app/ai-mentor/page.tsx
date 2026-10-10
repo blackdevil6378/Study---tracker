@@ -187,6 +187,7 @@ ${JSON.stringify(progressSummary, null, 2)}`;
 
     setIsStreaming(true);
     abortControllerRef.current = new AbortController();
+    let fullAssistantText = "";
 
     try {
       const res = await fetch(activeAiRoute, {
@@ -217,31 +218,48 @@ ${JSON.stringify(progressSummary, null, 2)}`;
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder("utf-8");
-      let fullAssistantText = "";
+      let pendingLine = "";
+
+      const processLine = (line: string) => {
+        if (!line.startsWith("data:")) return;
+
+        const data = line.slice(5).trim();
+        if (!data || data === "[DONE]") return;
+
+        const parsed = JSON.parse(data);
+        const partText =
+          parsed.candidates?.[0]?.content?.parts?.[0]?.text ||
+          parsed.choices?.[0]?.delta?.content ||
+          "";
+        if (partText) {
+          fullAssistantText += partText;
+          setStreamedText(fullAssistantText);
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          pendingLine += decoder.decode();
+          if (pendingLine.trim()) {
+            try {
+              processLine(pendingLine);
+            } catch {
+              // Ignore non-JSON SSE control events.
+            }
+          }
+          break;
+        }
 
-        const rawChunk = decoder.decode(value, { stream: true });
-        const lines = rawChunk.split("\n");
+        const rawChunk = pendingLine + decoder.decode(value, { stream: true });
+        const lines = rawChunk.split(/\r?\n/);
+        pendingLine = lines.pop() || "";
 
         for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const jsonStr = line.replace("data: ", "").trim();
-            if (jsonStr === "[DONE]") continue;
-
-            try {
-              const parsed = JSON.parse(jsonStr);
-              const partText =
-                parsed.candidates?.[0]?.content?.parts?.[0]?.text ||
-                parsed.choices?.[0]?.delta?.content ||
-                "";
-              fullAssistantText += partText;
-              setStreamedText(fullAssistantText);
-            } catch {
-              // chunk could be partial or non-json keepalive
-            }
+          try {
+            processLine(line);
+          } catch {
+            // Ignore non-JSON SSE control events.
           }
         }
       }
@@ -254,10 +272,10 @@ ${JSON.stringify(progressSummary, null, 2)}`;
       }
     } catch (err: any) {
       if (err.name === "AbortError") {
-        if (streamedText) {
+        if (fullAssistantText) {
           addMessageToThread(activeThreadKey, {
             role: "assistant",
-            content: streamedText,
+            content: fullAssistantText,
           });
         }
       } else {

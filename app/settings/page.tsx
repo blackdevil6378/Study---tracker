@@ -22,6 +22,7 @@ import {
 import { useStudyStore } from "@/store/useStudyStore";
 import { useNotifications } from "@/hooks/useNotifications";
 import { getLocalStorageUsage } from "@/lib/storage";
+import { useCloudSync } from "@/components/CloudSyncProvider";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
@@ -30,6 +31,7 @@ export default function SettingsPage() {
   const resetAllData = useStudyStore((s) => s.resetAllData);
   const importAllData = useStudyStore((s) => s.importAllData);
   const allStoreState = useStudyStore.getState();
+  const cloudSync = useCloudSync();
 
   const {
     permission,
@@ -269,6 +271,54 @@ export default function SettingsPage() {
         <p className="text-xs sm:text-sm text-gray-400 mt-1">
           Configure API credentials, study goals, notifications, and manage backups
         </p>
+      </div>
+
+      {/* Cloud Sync */}
+      <div className="p-6 rounded-2xl glass-panel bg-white/[0.02] border border-white/10 space-y-3">
+        <h2 className="text-sm uppercase tracking-wider font-semibold text-gray-300 font-heading">
+          Cloud Database & Account
+        </h2>
+        {cloudSync.configured ? (
+          <>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="text-xs">
+                <p className="text-white">
+                  Signed in as <span className="font-semibold">{cloudSync.email}</span>
+                </p>
+                <p className="text-gray-400 mt-1">
+                  Sync status:{" "}
+                  <span className={cloudSync.status === "error" ? "text-red-400" : "text-[#00f0ff]"}>
+                    {cloudSync.status}
+                  </span>
+                </p>
+                {cloudSync.error && (
+                  <p className="text-red-400 mt-1">{cloudSync.error}</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  void cloudSync.signOut().catch((error: unknown) => {
+                    toast.error(
+                      error instanceof Error ? error.message : "Could not sign out."
+                    );
+                  })
+                }
+                className="self-start px-4 py-2 rounded-xl bg-white/[0.06] border border-white/15 text-xs text-white font-medium hover:bg-white/[0.1]"
+              >
+                Sign out
+              </button>
+            </div>
+            <p className="text-[11px] text-gray-500">
+              Study data syncs to your private account. AI provider and YouTube API keys stay in this browser and are not uploaded.
+            </p>
+          </>
+        ) : (
+          <div className="text-xs text-gray-400 space-y-1">
+            <p>Cloud sync is not configured yet. Add your Supabase project URL and publishable/anon key to `.env.local`.</p>
+            <p>See the Supabase setup steps in the README. Local browser storage remains active until configured.</p>
+          </div>
+        )}
       </div>
 
       {/* Profile & General Preferences */}

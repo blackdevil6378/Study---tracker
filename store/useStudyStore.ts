@@ -688,7 +688,7 @@ export const useStudyStore = create<StudyStoreState>()(
     }),
     {
       name: "study-tracker-storage",
-      version: 2,
+      version: 3,
       migrate: (persistedState: any, version: number) => {
         if (persistedState && persistedState.settings) {
           persistedState.settings = {

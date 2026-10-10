@@ -57,7 +57,7 @@
    - Auto-logs completed Pomodoro minutes directly to your study heatmap and analytics.
    - Scheduled daily browser notifications & evening streak-saver nudges.
    - Global keyboard shortcuts: `⌘K` / `Ctrl+K` for command palette, `N` for new playlist, `C` for calendar, `A` for AI mentor.
-   - 100% client-side privacy: state persisted in `localStorage` with JSON export/import and quota monitoring.
+   - Study data is cached in `localStorage` and can sync privately to Supabase across signed-in devices. Gemini, Groq, and YouTube API keys remain local to each browser.
 
 ---
 
@@ -66,6 +66,7 @@
 - **Framework**: Next.js 14+ (App Router), TypeScript
 - **Styling**: Tailwind CSS (Dark theme `#07070c`, Glassmorphism, Neon cyan/purple/pink accents)
 - **State Management**: Zustand with `persist` middleware
+- **Cloud Storage & Auth**: Supabase Auth + PostgreSQL (`user_data` table with row-level security)
 - **Visuals & Charts**: Recharts, Framer Motion, Lucide Icons
 - **Markdown & Math**: `react-markdown`, `remark-gfm`, `remark-math`, `rehype-katex`, `katex`
 - **Notifications**: Web Notifications API + Service Worker (`/sw.js`)
@@ -112,11 +113,25 @@
 # 1. Install dependencies
 npm install
 
-# 2. Run the development server
+# 2. (Optional) Configure Supabase cloud sync in .env.local
+#    NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+#    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-publishable-or-anon-key
+
+# 3. Run the development server
 npm run dev
 
-# 3. Open http://localhost:3000 in your browser
+# 4. Open http://localhost:3000 in your browser
 ```
+
+### Supabase Cloud Sync Setup
+1. Create a project at [Supabase](https://supabase.com/dashboard).
+2. In **Project Settings > API**, copy the Project URL and the publishable key (or legacy `anon` key) into `.env.local` using the variable names above. Never use a `service_role` key in a browser app.
+3. In the Supabase **SQL Editor**, run [`supabase/schema.sql`](./supabase/schema.sql). It creates the per-user `user_data` table and row-level security policies.
+4. In **Authentication > Providers > Email**, enable email/password sign-in. Configure email confirmation as desired.
+5. Restart the Next.js dev server. Create an account or sign in; existing local study data is uploaded only when that account has no cloud record. Otherwise the cloud copy is loaded.
+6. Deployments need the same two `NEXT_PUBLIC_SUPABASE_*` environment variables set in their hosting provider.
+
+Cloud sync saves the app's study data and non-secret preferences. Gemini, Groq, and YouTube API keys are excluded from the cloud payload and need to be entered separately on each device. Simultaneous edits from multiple devices use last-write-wins; reopening the app loads the latest saved cloud copy.
 
 ---
 
