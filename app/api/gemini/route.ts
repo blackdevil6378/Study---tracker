@@ -16,11 +16,44 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    let { action, model = "gemini-3.8-flash", contents, systemInstruction } = body;
+    let { action, model = "gemini-3.8-flash", contents, systemInstruction, attachments } = body;
 
     // Auto-remap deprecated models
     if (!model || model === "gemini-2.0-flash") {
       model = "gemini-3.8-flash";
+    }
+
+    // Support attachments (images / PDFs) as inlineData parts for Gemini
+    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+      if (!contents || !Array.isArray(contents) || contents.length === 0) {
+        contents = [{ role: "user", parts: [{ text: "Please analyze the attached file(s)." }] }];
+      }
+      const lastIndex = contents.length - 1;
+      const lastMsg = contents[lastIndex];
+      const inlineParts = attachments
+        .filter((att: any) => att && (att.data || att.base64))
+        .map((att: any) => {
+          const rawData = att.data || att.base64 || "";
+          const base64 = rawData.includes(",") ? rawData.split(",")[1] : rawData;
+          const mimeType = att.mimeType || (att.type === "pdf" ? "application/pdf" : "image/jpeg");
+          return {
+            inlineData: {
+              mimeType,
+              data: base64,
+            },
+          };
+        });
+
+      if (inlineParts.length > 0) {
+        if (lastMsg && lastMsg.role === "user") {
+          lastMsg.parts = [...inlineParts, ...(lastMsg.parts || [])];
+        } else {
+          contents.push({
+            role: "user",
+            parts: inlineParts,
+          });
+        }
+      }
     }
 
     // Action 1: Test Key

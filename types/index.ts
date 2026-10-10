@@ -72,11 +72,17 @@ export interface StudySession {
   minutes: number;
 }
 
+export interface ChatAttachmentMeta {
+  name: string;
+  type: 'image' | 'pdf';
+}
+
 export interface ChatMessage {
   id?: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   ts: number;
+  attachments?: ChatAttachmentMeta[];
 }
 
 export interface ChatThread {

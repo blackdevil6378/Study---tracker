@@ -435,7 +435,7 @@ export const useStudyStore = create<StudyStoreState>()(
       addMessageToThread: (threadKey, message) => {
         const fullMessage: ChatMessage = {
           ...message,
-          id: generateId("msg"),
+          id: message.id || generateId("msg"),
           ts: Date.now(),
         };
 
