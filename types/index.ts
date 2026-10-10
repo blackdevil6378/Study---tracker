@@ -71,11 +71,16 @@ export interface ChatThread {
   updatedAt: number;
 }
 
+export type AIProvider = 'gemini' | 'groq';
+
 export interface Settings {
   userName: string;
+  aiProvider: AIProvider;
   geminiKey: string;
+  groqKey: string;
   youtubeKey: string;
   geminiModel: string; // default 'gemini-3.8-flash'
+  groqModel: string; // default 'llama-3.3-70b-versatile'
   dailyGoalLectures: number; // default 3
   language: 'hinglish' | 'english';
   reminderEnabled: boolean;

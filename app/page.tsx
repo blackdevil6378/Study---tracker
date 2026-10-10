@@ -82,7 +82,12 @@ export default function DashboardPage() {
 
   // Generate / Fetch AI Briefing
   const fetchAiBriefing = async () => {
-    if (!settings.geminiKey) {
+    const aiProvider = settings.aiProvider === "groq" ? "groq" : "gemini";
+    const aiKey = aiProvider === "groq" ? settings.groqKey : settings.geminiKey;
+    const aiModel = aiProvider === "groq" ? settings.groqModel : settings.geminiModel;
+    const aiRoute = aiProvider === "groq" ? "/api/groq" : "/api/gemini";
+
+    if (!aiKey) {
       setAiBriefing(
         settings.language === "hinglish"
           ? `Focus on consistency aaj! Target: ${dailyGoal} lectures. Agar thoda mushkil lage, ek 25-min Pomodoro se shuru karo. Let's conquer it!`
@@ -106,15 +111,17 @@ export default function DashboardPage() {
 Provide a punchy 2-sentence morning briefing in ${settings.language} (casual tone, real-life analogy, actionable focus).
 Current status JSON: ${JSON.stringify(summaryPayload)}`;
 
-      const res = await fetch("/api/gemini", {
+      const res = await fetch(aiRoute, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-gemini-key": settings.geminiKey,
+          ...(aiProvider === "groq"
+            ? { "x-groq-key": aiKey }
+            : { "x-gemini-key": aiKey }),
         },
         body: JSON.stringify({
           action: "generate",
-          model: settings.geminiModel || "gemini-3.8-flash",
+          model: aiModel || (aiProvider === "groq" ? "llama-3.3-70b-versatile" : "gemini-3.8-flash"),
           contents: [{ parts: [{ text: promptText }] }],
         }),
       });

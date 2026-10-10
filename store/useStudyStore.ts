@@ -88,9 +88,12 @@ interface StudyStoreState {
 
 const defaultSettings: Settings = {
   userName: "Aspirant",
+  aiProvider: "gemini",
   geminiKey: "",
+  groqKey: "",
   youtubeKey: "",
   geminiModel: "gemini-3.8-flash",
+  groqModel: "llama-3.3-70b-versatile",
   dailyGoalLectures: 3,
   language: "hinglish",
   reminderEnabled: false,
@@ -490,7 +493,7 @@ export const useStudyStore = create<StudyStoreState>()(
             events: data.events || state.events,
             sessions: data.sessions || state.sessions,
             threads: data.threads || state.threads,
-            settings: { ...state.settings, ...(data.settings || {}) },
+            settings: { ...defaultSettings, ...state.settings, ...(data.settings || {}) },
           }));
           return true;
         } catch {
@@ -687,13 +690,26 @@ export const useStudyStore = create<StudyStoreState>()(
       name: "study-tracker-storage",
       version: 2,
       migrate: (persistedState: any, version: number) => {
-        if (
-          persistedState &&
-          persistedState.settings &&
-          (!persistedState.settings.geminiModel ||
-            persistedState.settings.geminiModel === "gemini-2.0-flash")
-        ) {
-          persistedState.settings.geminiModel = "gemini-3.8-flash";
+        if (persistedState && persistedState.settings) {
+          persistedState.settings = {
+            ...defaultSettings,
+            ...persistedState.settings,
+          };
+
+          if (
+            !persistedState.settings.geminiModel ||
+            persistedState.settings.geminiModel === "gemini-2.0-flash"
+          ) {
+            persistedState.settings.geminiModel = "gemini-3.8-flash";
+          }
+
+          if (!persistedState.settings.groqModel) {
+            persistedState.settings.groqModel = "llama-3.3-70b-versatile";
+          }
+
+          if (!persistedState.settings.aiProvider) {
+            persistedState.settings.aiProvider = "gemini";
+          }
         }
         return persistedState;
       },

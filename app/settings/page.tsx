@@ -39,12 +39,15 @@ export default function SettingsPage() {
 
   // Local state for keys
   const [geminiKeyInput, setGeminiKeyInput] = useState(settings.geminiKey || "");
+  const [groqKeyInput, setGroqKeyInput] = useState(settings.groqKey || "");
   const [youtubeKeyInput, setYoutubeKeyInput] = useState(settings.youtubeKey || "");
   const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [showGroqKey, setShowGroqKey] = useState(false);
   const [showYoutubeKey, setShowYoutubeKey] = useState(false);
 
   // Testing Key States
   const [testingGemini, setTestingGemini] = useState(false);
+  const [testingGroq, setTestingGroq] = useState(false);
   const [testingYoutube, setTestingYoutube] = useState(false);
 
   // Storage calculation
@@ -62,11 +65,18 @@ export default function SettingsPage() {
     if (!settings.geminiModel || settings.geminiModel === "gemini-2.0-flash") {
       updateSettings({ geminiModel: "gemini-3.8-flash" });
     }
-  }, [settings.geminiModel, updateSettings]);
+    if (!settings.groqModel) {
+      updateSettings({ groqModel: "llama-3.3-70b-versatile" });
+    }
+    if (!settings.aiProvider) {
+      updateSettings({ aiProvider: "gemini" });
+    }
+  }, [settings.geminiModel, settings.groqModel, settings.aiProvider, updateSettings]);
 
   const handleSaveKeys = () => {
     updateSettings({
       geminiKey: geminiKeyInput.trim(),
+      groqKey: groqKeyInput.trim(),
       youtubeKey: youtubeKeyInput.trim(),
     });
     toast.success("API keys saved securely in browser storage!");
@@ -107,6 +117,41 @@ export default function SettingsPage() {
       toast.error(`Error: ${err.message}`);
     } finally {
       setTestingGemini(false);
+    }
+  };
+
+  const handleTestGroqKey = async () => {
+    const keyToTest = groqKeyInput.trim() || settings.groqKey;
+    if (!keyToTest) {
+      toast.error("Please enter a Groq API Key first.");
+      return;
+    }
+
+    setTestingGroq(true);
+    try {
+      const res = await fetch("/api/groq", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-groq-key": keyToTest,
+        },
+        body: JSON.stringify({
+          action: "test",
+          model: settings.groqModel || "llama-3.3-70b-versatile",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Groq key verification failed.");
+      }
+
+      toast.success("✅ Groq API Key is valid and working!");
+      updateSettings({ groqKey: keyToTest });
+    } catch (err: any) {
+      toast.error(`Error: ${err.message}`);
+    } finally {
+      setTestingGroq(false);
     }
   };
 
@@ -154,8 +199,8 @@ export default function SettingsPage() {
       threads: allStoreState.threads,
       settings: {
         ...allStoreState.settings,
-        // Do not export secrets by default or ask user
         geminiKey: allStoreState.settings.geminiKey,
+        groqKey: allStoreState.settings.groqKey,
         youtubeKey: allStoreState.settings.youtubeKey,
       },
     };
@@ -184,6 +229,7 @@ export default function SettingsPage() {
         if (success) {
           toast.success("Successfully imported all study data!");
           setGeminiKeyInput(json.settings?.geminiKey || "");
+          setGroqKeyInput(json.settings?.groqKey || "");
           setYoutubeKeyInput(json.settings?.youtubeKey || "");
           setStorageUsage(getLocalStorageUsage());
         } else {
@@ -205,6 +251,7 @@ export default function SettingsPage() {
     ) {
       resetAllData();
       setGeminiKeyInput("");
+      setGroqKeyInput("");
       setYoutubeKeyInput("");
       setStorageUsage(getLocalStorageUsage());
       toast.success("All tracker data has been reset to defaults.");
@@ -321,6 +368,34 @@ export default function SettingsPage() {
           </p>
         </div>
 
+        <div className="space-y-2">
+          <label className="text-xs font-semibold text-gray-200 block">AI Provider</label>
+          <div className="grid grid-cols-2 gap-3 max-w-md">
+            <button
+              type="button"
+              onClick={() => updateSettings({ aiProvider: "gemini" })}
+              className={`p-2.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
+                settings.aiProvider === "gemini"
+                  ? "bg-[#00f0ff] text-black font-bold shadow-[0_0_15px_rgba(0,240,255,0.3)]"
+                  : "bg-white/[0.03] border-white/10 text-gray-400 hover:text-white"
+              }`}
+            >
+              Gemini
+            </button>
+            <button
+              type="button"
+              onClick={() => updateSettings({ aiProvider: "groq" })}
+              className={`p-2.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
+                settings.aiProvider === "groq"
+                  ? "bg-[#00f0ff] text-black font-bold shadow-[0_0_15px_rgba(0,240,255,0.3)]"
+                  : "bg-white/[0.03] border-white/10 text-gray-400 hover:text-white"
+              }`}
+            >
+              Groq
+            </button>
+          </div>
+        </div>
+
         {/* Gemini API Key */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -371,7 +446,6 @@ export default function SettingsPage() {
             </button>
           </div>
 
-          {/* Model Selection */}
           <div className="pt-2 space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs text-gray-400">Gemini Model:</label>
@@ -407,6 +481,100 @@ export default function SettingsPage() {
                 value={settings.geminiModel}
                 onChange={(e) => updateSettings({ geminiModel: e.target.value })}
                 placeholder="gemini-3.8-flash"
+                className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-white text-xs font-mono w-full sm:w-72 focus:outline-none focus:border-[#00f0ff]"
+              />
+              <span className="text-[11px] text-gray-500 font-mono hidden sm:inline">
+                (or type custom model)
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Groq API Key */}
+        <div className="space-y-2 pt-2 border-t border-white/5">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-gray-200">
+              Groq API Key
+            </label>
+            <a
+              href="https://console.groq.com/keys"
+              target="_blank"
+              rel="noreferrer"
+              className="text-[11px] text-[#00f0ff] hover:underline flex items-center gap-1"
+            >
+              Get Free Key (Groq Console) <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type={showGroqKey ? "text" : "password"}
+                placeholder="gsk_..."
+                value={groqKeyInput}
+                onChange={(e) => setGroqKeyInput(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-[#00f0ff] pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowGroqKey(!showGroqKey)}
+                className="absolute right-3 top-2.5 text-gray-400 hover:text-white cursor-pointer"
+              >
+                {showGroqKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+
+            <button
+              onClick={handleTestGroqKey}
+              disabled={testingGroq}
+              className="px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/15 text-xs text-white font-medium hover:bg-white/[0.1] transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
+            >
+              {testingGroq ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#00f0ff]" />
+                  <span>Testing...</span>
+                </>
+              ) : (
+                <span>Test Key</span>
+              )}
+            </button>
+          </div>
+
+          <div className="pt-2 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs text-gray-400">Groq Model:</label>
+              <span className="text-[11px] text-gray-500 font-mono">
+                Active: <span className="text-[#00f0ff]">{settings.groqModel || "llama-3.3-70b-versatile"}</span>
+              </span>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: "llama-3.3-70b-versatile", label: "llama-3.3-70b-versatile (Recommended)" },
+                { id: "llama-3.1-8b-instant", label: "llama-3.1-8b-instant" },
+                { id: "mixtral-8x7b-32768", label: "mixtral-8x7b-32768" },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => updateSettings({ groqModel: m.id })}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-mono border transition-all cursor-pointer ${
+                    settings.groqModel === m.id
+                      ? "bg-[#00f0ff]/20 border-[#00f0ff] text-[#00f0ff] shadow-[0_0_10px_rgba(0,240,255,0.2)]"
+                      : "bg-white/[0.03] border-white/10 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="text"
+                value={settings.groqModel}
+                onChange={(e) => updateSettings({ groqModel: e.target.value })}
+                placeholder="llama-3.3-70b-versatile"
                 className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-white text-xs font-mono w-full sm:w-72 focus:outline-none focus:border-[#00f0ff]"
               />
               <span className="text-[11px] text-gray-500 font-mono hidden sm:inline">

@@ -95,6 +95,12 @@ function AiMentorContent() {
   const selectedLecture = lectures.find((l) => l.id === selectedLectureId);
   const subjectLectures = lectures.filter((l) => l.subjectId === selectedSubjectId);
 
+  const activeAiProvider = settings.aiProvider === "groq" ? "groq" : "gemini";
+  const activeAiKey = activeAiProvider === "groq" ? settings.groqKey : settings.geminiKey;
+  const activeAiModel = activeAiProvider === "groq" ? settings.groqModel : settings.geminiModel;
+  const activeAiRoute = activeAiProvider === "groq" ? "/api/groq" : "/api/gemini";
+  const activeAiLabel = activeAiProvider === "groq" ? "Groq" : "Gemini";
+
   // Build System Prompt with real-time study context
   const buildSystemInstruction = () => {
     const todayStr = format(new Date(), "yyyy-MM-dd");
@@ -153,8 +159,8 @@ ${JSON.stringify(progressSummary, null, 2)}`;
     const query = textToSend || inputMessage;
     if (!query.trim() || isStreaming) return;
 
-    if (!settings.geminiKey) {
-      setErrorMessage("Gemini API Key is not set. Please add it in Settings.");
+    if (!activeAiKey) {
+      setErrorMessage(`${activeAiLabel} API key is not set. Please add it in Settings.`);
       return;
     }
 
@@ -168,7 +174,6 @@ ${JSON.stringify(progressSummary, null, 2)}`;
       content: query,
     });
 
-    // Prepare contents array for Gemini
     const contents = [
       ...activeThread.messages.map((m) => ({
         role: m.role === "assistant" ? "model" : "user",
@@ -184,15 +189,17 @@ ${JSON.stringify(progressSummary, null, 2)}`;
     abortControllerRef.current = new AbortController();
 
     try {
-      const res = await fetch("/api/gemini", {
+      const res = await fetch(activeAiRoute, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-gemini-key": settings.geminiKey,
+          ...(activeAiProvider === "groq"
+            ? { "x-groq-key": activeAiKey }
+            : { "x-gemini-key": activeAiKey }),
         },
         body: JSON.stringify({
           action: "chat_stream",
-          model: settings.geminiModel || "gemini-3.8-flash",
+          model: activeAiModel || (activeAiProvider === "groq" ? "llama-3.3-70b-versatile" : "gemini-3.8-flash"),
           systemInstruction: buildSystemInstruction(),
           contents,
         }),
@@ -227,7 +234,9 @@ ${JSON.stringify(progressSummary, null, 2)}`;
             try {
               const parsed = JSON.parse(jsonStr);
               const partText =
-                parsed.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                parsed.candidates?.[0]?.content?.parts?.[0]?.text ||
+                parsed.choices?.[0]?.delta?.content ||
+                "";
               fullAssistantText += partText;
               setStreamedText(fullAssistantText);
             } catch {
@@ -237,7 +246,6 @@ ${JSON.stringify(progressSummary, null, 2)}`;
         }
       }
 
-      // Add final completed assistant message to thread
       if (fullAssistantText) {
         addMessageToThread(activeThreadKey, {
           role: "assistant",
@@ -253,7 +261,7 @@ ${JSON.stringify(progressSummary, null, 2)}`;
           });
         }
       } else {
-        setErrorMessage(err.message || "Failed to communicate with Gemini API.");
+        setErrorMessage(err.message || `Failed to communicate with ${activeAiLabel} API.`);
       }
     } finally {
       setIsStreaming(false);
@@ -338,7 +346,7 @@ ${JSON.stringify(progressSummary, null, 2)}`;
             <h1 className="text-xl sm:text-2xl font-black text-white font-heading flex items-center gap-2">
               <span>AI Study Mentor</span>
               <span className="text-xs font-mono font-normal px-2 py-0.5 rounded-full bg-[#00f0ff]/10 text-[#00f0ff] border border-[#00f0ff]/30">
-                {settings.geminiModel || "gemini-3.8-flash"}
+                {activeAiModel || (activeAiProvider === "groq" ? "llama-3.3-70b-versatile" : "gemini-3.8-flash")}
               </span>
             </h1>
             <p className="text-xs text-gray-400">
@@ -416,12 +424,12 @@ ${JSON.stringify(progressSummary, null, 2)}`;
       </div>
 
       {/* Warning if API key is missing */}
-      {!settings.geminiKey && (
+      {!activeAiKey && (
         <div className="mt-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between text-xs text-amber-300">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-400" />
             <span>
-              Gemini API key is required to chat with AI Mentor. Add it in Settings.
+              {activeAiLabel} API key is required to chat with AI Mentor. Add it in Settings.
             </span>
           </div>
           <Link

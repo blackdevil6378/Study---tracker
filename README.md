@@ -32,8 +32,8 @@
    - **Overdue Rescheduling**: 1-click batch rescheduling of past uncompleted lectures starting from today.
    - Custom calendar events (Exams, Quizzes, Revision) with milestone countdown badges.
 
-4. **AI Mentor (Google Gemini)**
-   - Streaming SSE chat via Google Gemini REST API (`gemini-3.8-flash` default or custom model).
+   4. **AI Mentor (Google Gemini + Groq)**
+   - Streaming SSE chat via Google Gemini or Groq REST APIs (`gemini-3.8-flash` / `llama-3.3-70b-versatile` defaults or custom models).
    - Math equation rendering via KaTeX ($...$ and $$...$$) and GitHub Flavored Markdown with syntax-highlighted code.
    - **Context-Aware System Instructions**: Injects your active lecture title, saved notes, difficulty flags, overdue count, completion percentage, and streak into the system prompt.
    - Natural **Hinglish** (default) or **English** mentoring tone.
@@ -75,7 +75,7 @@
 
 ## 🔑 How to Get Your Free API Keys
 
-> **Note**: Both keys are optional to explore demo courses, but required for live YouTube imports and Gemini AI chat. Keys are stored solely in your local browser and sent through standard request headers to Next.js API routes (`/api/gemini` and `/api/youtube`). They are **never hardcoded and never logged**.
+> **Note**: API keys are optional to explore demo courses, but required for live YouTube imports and AI Mentor chat. Keys are stored solely in your local browser and sent through standard request headers to Next.js API routes (`/api/gemini`, `/api/groq`, and `/api/youtube`). They are **never hardcoded and never logged**.
 
 ### 1. Google Gemini API Key (Free)
 1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey).
@@ -84,7 +84,13 @@
 4. Copy the API key (starts with `AIzaSy...`).
 5. In Study Tracker, navigate to **Settings**, paste your key, and click **"Test Key"**.
 
-### 2. YouTube Data API v3 Key (Free)
+### 2. Groq API Key (Free)
+1. Go to [Groq Console](https://console.groq.com/keys).
+2. Sign in and create a new API key.
+3. Copy the key and paste it in the Study Tracker Settings page.
+4. Choose the `Groq` provider in AI Mentor settings and optionally select a model like `llama-3.3-70b-versatile`.
+
+### 3. YouTube Data API v3 Key (Free)
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
 2. Create a new project (e.g., `Study-Tracker-Project`).
 3. In the search bar at the top, search for **"YouTube Data API v3"** and click **Enable**.
