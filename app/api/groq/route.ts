@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       action,
-      model = "llama-3.3-70b-versatile",
+      model = "openai/gpt-oss-120b",
       messages,
       contents,
       systemInstruction,
