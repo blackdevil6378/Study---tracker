@@ -111,7 +111,7 @@ export interface Settings {
   groqKey: string;
   youtubeKey: string;
   geminiModel: string; // default 'gemini-3.8-flash'
-  groqModel: string; // default 'llama-3.3-70b-versatile'
+  groqModel: string; // default 'openai/gpt-oss-120b'
   dailyGoalLectures: number; // default 3
   language: 'hinglish' | 'english';
   reminderEnabled: boolean;

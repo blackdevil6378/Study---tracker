@@ -483,7 +483,7 @@ ${JSON.stringify(progressSummary, null, 2)}`;
         },
         body: JSON.stringify({
           action: "chat_stream",
-          model: activeAiModel || (activeAiProvider === "groq" ? "llama-3.3-70b-versatile" : "gemini-3.8-flash"),
+          model: activeAiModel || (activeAiProvider === "groq" ? "openai/gpt-oss-120b" : "gemini-3.8-flash"),
           systemInstruction: buildSystemInstruction(),
           contents,
           attachments: currentAttachments.map((a) => ({
@@ -687,7 +687,7 @@ ${JSON.stringify(progressSummary, null, 2)}`;
             <h1 className="text-xl sm:text-2xl font-black text-white font-heading flex items-center gap-2">
               <span>AI Study Mentor</span>
               <span className="text-xs font-mono font-normal px-2 py-0.5 rounded-full bg-[#00f0ff]/10 text-[#00f0ff] border border-[#00f0ff]/30">
-                {activeAiModel || (activeAiProvider === "groq" ? "llama-3.3-70b-versatile" : "gemini-3.8-flash")}
+                {activeAiModel || (activeAiProvider === "groq" ? "openai/gpt-oss-120b" : "gemini-3.8-flash")}
               </span>
             </h1>
             <p className="text-xs text-gray-400">

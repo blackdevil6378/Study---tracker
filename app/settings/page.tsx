@@ -18,6 +18,7 @@ import {
   User,
   Sparkles,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { useStudyStore } from "@/store/useStudyStore";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -51,6 +52,8 @@ export default function SettingsPage() {
   const [testingGemini, setTestingGemini] = useState(false);
   const [testingGroq, setTestingGroq] = useState(false);
   const [testingYoutube, setTestingYoutube] = useState(false);
+  const [fetchingGroqModels, setFetchingGroqModels] = useState(false);
+  const [liveGroqModels, setLiveGroqModels] = useState<string[]>([]);
 
   // Storage calculation
   const [storageUsage, setStorageUsage] = useState({
@@ -67,8 +70,8 @@ export default function SettingsPage() {
     if (!settings.geminiModel || settings.geminiModel === "gemini-2.0-flash") {
       updateSettings({ geminiModel: "gemini-3.8-flash" });
     }
-    if (!settings.groqModel) {
-      updateSettings({ groqModel: "llama-3.3-70b-versatile" });
+    if (!settings.groqModel || settings.groqModel === "mixtral-8x7b-32768") {
+      updateSettings({ groqModel: "openai/gpt-oss-120b" });
     }
     if (!settings.aiProvider) {
       updateSettings({ aiProvider: "gemini" });
@@ -139,7 +142,7 @@ export default function SettingsPage() {
         },
         body: JSON.stringify({
           action: "test",
-          model: settings.groqModel || "llama-3.3-70b-versatile",
+          model: settings.groqModel || "openai/gpt-oss-120b",
         }),
       });
 
@@ -148,12 +151,64 @@ export default function SettingsPage() {
         throw new Error(data.error || "Groq key verification failed.");
       }
 
-      toast.success("✅ Groq API Key is valid and working!");
+      if (data.warning) {
+        toast.warning(data.message, { duration: 6000 });
+        if (data.availableModels && data.availableModels.length > 0) {
+          setLiveGroqModels(data.availableModels);
+        }
+      } else {
+        toast.success("✅ Groq API Key is valid and working!");
+      }
+
       updateSettings({ groqKey: keyToTest });
+
+      // Automatically fetch available models from their account
+      handleFetchGroqModels(keyToTest, false);
     } catch (err: any) {
       toast.error(`Error: ${err.message}`);
     } finally {
       setTestingGroq(false);
+    }
+  };
+
+  const handleFetchGroqModels = async (explicitKey?: string, showToast = true) => {
+    const keyToUse = explicitKey || groqKeyInput.trim() || settings.groqKey;
+    if (!keyToUse) {
+      if (showToast) toast.error("Please enter a Groq API Key first.");
+      return;
+    }
+
+    setFetchingGroqModels(true);
+    try {
+      const res = await fetch("/api/groq", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-groq-key": keyToUse,
+        },
+        body: JSON.stringify({
+          action: "models",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to fetch models.");
+      }
+
+      const modelList = (data.models || []).map((m: any) => m.id);
+      setLiveGroqModels(modelList);
+      if (showToast) {
+        if (modelList.length > 0) {
+          toast.success(`Fetched ${modelList.length} active models from your Groq account!`);
+        } else {
+          toast.info("No chat models returned from Groq.");
+        }
+      }
+    } catch (err: any) {
+      if (showToast) toast.error(`Error fetching models: ${err.message}`);
+    } finally {
+      setFetchingGroqModels(false);
     }
   };
 
@@ -590,33 +645,84 @@ export default function SettingsPage() {
             </button>
           </div>
 
-          <div className="pt-2 space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs text-gray-400">Groq Model:</label>
+          <div className="pt-2 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-400">Groq Model:</label>
+                <button
+                  type="button"
+                  onClick={() => handleFetchGroqModels()}
+                  disabled={fetchingGroqModels}
+                  className="px-2 py-0.5 rounded-md bg-white/[0.05] border border-white/10 text-[11px] text-gray-300 hover:text-white hover:bg-white/[0.1] transition-all flex items-center gap-1 cursor-pointer"
+                  title="Fetch all currently active models from your Groq account"
+                >
+                  <RefreshCw className={`w-3 h-3 text-[#00f0ff] ${fetchingGroqModels ? "animate-spin" : ""}`} />
+                  <span>{fetchingGroqModels ? "Fetching..." : "Fetch Live Models"}</span>
+                </button>
+              </div>
               <span className="text-[11px] text-gray-500 font-mono">
-                Active: <span className="text-[#00f0ff]">{settings.groqModel || "llama-3.3-70b-versatile"}</span>
+                Active: <span className="text-[#00f0ff]">{settings.groqModel || "openai/gpt-oss-120b"}</span>
               </span>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {[
-                { id: "llama-3.3-70b-versatile", label: "llama-3.3-70b-versatile (Recommended)" },
-                { id: "llama-3.1-8b-instant", label: "llama-3.1-8b-instant" },
-                { id: "mixtral-8x7b-32768", label: "mixtral-8x7b-32768" },
-              ].map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => updateSettings({ groqModel: m.id })}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-mono border transition-all cursor-pointer ${
-                    settings.groqModel === m.id
-                      ? "bg-[#00f0ff]/20 border-[#00f0ff] text-[#00f0ff] shadow-[0_0_10px_rgba(0,240,255,0.2)]"
-                      : "bg-white/[0.03] border-white/10 text-gray-400 hover:text-white"
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
+            {/* Live models fetched from account */}
+            {liveGroqModels.length > 0 && (
+              <div className="p-2.5 rounded-xl bg-white/[0.02] border border-[#00f0ff]/20 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] text-[#00f0ff]">
+                  <span className="font-semibold flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" /> Live Models on Your Key ({liveGroqModels.length})
+                  </span>
+                  <span className="text-gray-500 text-[10px]">Click any to select</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+                  {liveGroqModels.map((modelId) => (
+                    <button
+                      key={modelId}
+                      type="button"
+                      onClick={() => updateSettings({ groqModel: modelId })}
+                      className={`px-2 py-0.5 rounded text-[11px] font-mono border transition-all cursor-pointer ${
+                        settings.groqModel === modelId
+                          ? "bg-[#00f0ff]/20 border-[#00f0ff] text-[#00f0ff] shadow-[0_0_8px_rgba(0,240,255,0.25)]"
+                          : "bg-white/[0.03] border-white/10 text-gray-300 hover:text-white hover:border-white/20"
+                      }`}
+                    >
+                      {modelId}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Curated Latest & Free Models */}
+            <div>
+              <div className="text-[11px] text-gray-400 mb-1.5">Latest & Free Models:</div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: "openai/gpt-oss-120b", label: "openai/gpt-oss-120b", tag: "Recommended" },
+                  { id: "openai/gpt-oss-20b", label: "openai/gpt-oss-20b", tag: "Fast" },
+                  { id: "qwen/qwen3.8-27b", label: "qwen/qwen3.8-27b", tag: "Multimodal" },
+                  { id: "qwen-2.5-coder-32b", label: "qwen-2.5-coder-32b", tag: "Code" },
+                  { id: "llama-3.3-70b-versatile", label: "llama-3.3-70b-versatile", tag: "Llama 70B" },
+                  { id: "llama-3.1-8b-instant", label: "llama-3.1-8b-instant", tag: "Instant" },
+                  { id: "deepseek-r1-distill-llama-70b", label: "deepseek-r1-distill-llama-70b", tag: "Reasoning" },
+                ].map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => updateSettings({ groqModel: m.id })}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-mono border transition-all cursor-pointer flex items-center gap-1.5 ${
+                      settings.groqModel === m.id
+                        ? "bg-[#00f0ff]/20 border-[#00f0ff] text-[#00f0ff] shadow-[0_0_10px_rgba(0,240,255,0.2)] font-medium"
+                        : "bg-white/[0.03] border-white/10 text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    <span>{m.label}</span>
+                    <span className="text-[9px] px-1 py-0.2 rounded bg-white/10 text-gray-300">
+                      {m.tag}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="flex items-center gap-2 pt-1">
@@ -624,11 +730,11 @@ export default function SettingsPage() {
                 type="text"
                 value={settings.groqModel}
                 onChange={(e) => updateSettings({ groqModel: e.target.value })}
-                placeholder="llama-3.3-70b-versatile"
-                className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-white text-xs font-mono w-full sm:w-72 focus:outline-none focus:border-[#00f0ff]"
+                placeholder="openai/gpt-oss-120b"
+                className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-white text-xs font-mono w-full sm:w-80 focus:outline-none focus:border-[#00f0ff]"
               />
               <span className="text-[11px] text-gray-500 font-mono hidden sm:inline">
-                (or type custom model)
+                (or enter any custom Groq model ID)
               </span>
             </div>
           </div>

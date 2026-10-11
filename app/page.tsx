@@ -121,7 +121,7 @@ Current status JSON: ${JSON.stringify(summaryPayload)}`;
         },
         body: JSON.stringify({
           action: "generate",
-          model: aiModel || (aiProvider === "groq" ? "llama-3.3-70b-versatile" : "gemini-3.8-flash"),
+          model: aiModel || (aiProvider === "groq" ? "openai/gpt-oss-120b" : "gemini-3.8-flash"),
           contents: [{ parts: [{ text: promptText }] }],
         }),
       });

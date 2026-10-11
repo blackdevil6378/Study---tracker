@@ -61,6 +61,28 @@ export async function POST(req: NextRequest) {
           }))
       : normalizeMessages(contents, systemInstruction);
 
+    if (action === "models") {
+      const res = await fetch("https://api.groq.com/openai/v1/models", {
+        headers: {
+          Authorization: `Bearer ${groqKey}`,
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        return NextResponse.json(
+          { error: errorData?.error?.message || `Failed to fetch models (Status: ${res.status})` },
+          { status: res.status }
+        );
+      }
+
+      const data = await res.json();
+      const models = (data.data || [])
+        .filter((m: any) => !m.id.includes("whisper") && !m.id.includes("guard"))
+        .map((m: any) => ({ id: m.id, active: m.active ?? true }));
+      return NextResponse.json({ models });
+    }
+
     if (action === "test") {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -78,6 +100,25 @@ export async function POST(req: NextRequest) {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
+        // Check if key itself is valid via models list
+        const keyCheck = await fetch("https://api.groq.com/openai/v1/models", {
+          headers: { Authorization: `Bearer ${groqKey}` },
+        });
+
+        if (keyCheck.ok) {
+          const modelsData = await keyCheck.json().catch(() => ({}));
+          const availableModels = (modelsData.data || [])
+            .filter((m: any) => !m.id.includes("whisper") && !m.id.includes("guard"))
+            .map((m: any) => m.id);
+
+          return NextResponse.json({
+            success: true,
+            warning: true,
+            availableModels,
+            message: `Key is valid! But model '${model}' is not active on your tier. Please pick from available models.`,
+          });
+        }
+
         const message =
           errorData?.error?.message ||
           `Groq API rejected key (Status: ${res.status})`;
@@ -164,3 +205,44 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export async function GET(req: NextRequest) {
+  try {
+    const groqKey =
+      req.headers.get("x-groq-key") || process.env.GROQ_API_KEY || "";
+
+    if (!groqKey.trim()) {
+      return NextResponse.json(
+        { error: "Groq API key is missing." },
+        { status: 401 }
+      );
+    }
+
+    const res = await fetch("https://api.groq.com/openai/v1/models", {
+      headers: {
+        Authorization: `Bearer ${groqKey}`,
+      },
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      return NextResponse.json(
+        { error: errorData?.error?.message || `Failed to fetch models (Status: ${res.status})` },
+        { status: res.status }
+      );
+    }
+
+    const data = await res.json();
+    const models = (data.data || [])
+      .filter((m: any) => !m.id.includes("whisper") && !m.id.includes("guard"))
+      .map((m: any) => ({ id: m.id, active: m.active ?? true }));
+
+    return NextResponse.json({ models });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error?.message || "Internal server error." },
+      { status: 500 }
+    );
+  }
+}
+

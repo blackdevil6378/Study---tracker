@@ -33,7 +33,7 @@
    - Custom calendar events (Exams, Quizzes, Revision) with milestone countdown badges.
 
    4. **AI Mentor (Google Gemini + Groq)**
-   - Streaming SSE chat via Google Gemini or Groq REST APIs (`gemini-3.8-flash` / `llama-3.3-70b-versatile` defaults or custom models).
+   - Streaming SSE chat via Google Gemini or Groq REST APIs (`gemini-3.8-flash` / `openai/gpt-oss-120b` defaults or custom models).
    - Math equation rendering via KaTeX ($...$ and $$...$$) and GitHub Flavored Markdown with syntax-highlighted code.
    - **Context-Aware System Instructions**: Injects your active lecture title, saved notes, difficulty flags, overdue count, completion percentage, and streak into the system prompt.
    - Natural **Hinglish** (default) or **English** mentoring tone.
@@ -89,7 +89,7 @@
 1. Go to [Groq Console](https://console.groq.com/keys).
 2. Sign in and create a new API key.
 3. Copy the key and paste it in the Study Tracker Settings page.
-4. Choose the `Groq` provider in AI Mentor settings and optionally select a model like `llama-3.3-70b-versatile`.
+4. Choose the `Groq` provider in AI Mentor settings and select from the latest models (e.g. `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.8-27b`, `llama-3.3-70b-versatile`, or fetch live models from your account).
 
 ### 3. YouTube Data API v3 Key (Free)
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/).

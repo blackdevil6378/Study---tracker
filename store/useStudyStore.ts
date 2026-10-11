@@ -101,7 +101,7 @@ const defaultSettings: Settings = {
   groqKey: "",
   youtubeKey: "",
   geminiModel: "gemini-3.8-flash",
-  groqModel: "llama-3.3-70b-versatile",
+  groqModel: "openai/gpt-oss-120b",
   dailyGoalLectures: 3,
   language: "hinglish",
   reminderEnabled: false,
@@ -794,8 +794,11 @@ export const useStudyStore = create<StudyStoreState>()(
             persistedState.settings.geminiModel = "gemini-3.8-flash";
           }
 
-          if (!persistedState.settings.groqModel) {
-            persistedState.settings.groqModel = "llama-3.3-70b-versatile";
+          if (
+            !persistedState.settings.groqModel ||
+            persistedState.settings.groqModel === "mixtral-8x7b-32768"
+          ) {
+            persistedState.settings.groqModel = "openai/gpt-oss-120b";
           }
 
           if (!persistedState.settings.aiProvider) {
