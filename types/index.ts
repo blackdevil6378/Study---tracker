@@ -18,6 +18,14 @@ export interface Playlist {
   totalDurationSec: number;
 }
 
+export interface TranscriptLine {
+  start: number;
+  end: number;
+  text: string;
+}
+
+export type LectureTranscript = Record<string, TranscriptLine[]>;
+
 export interface Lecture {
   id: string;
   playlistId: string;
@@ -33,6 +41,7 @@ export interface Lecture {
   notes: string;
   difficult: boolean;
   revisionCount: number;
+  transcript?: LectureTranscript;
   scheduledDate?: string; // YYYY-MM-DD
   lastRevisedAt?: string; // ISO date string
 }

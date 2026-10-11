@@ -34,17 +34,33 @@ export function YouTubePlayerModal() {
     currentTime,
     playbackRate,
     changeSpeed,
+    seekTo,
   } = useYouTubePlayer(activeLecture);
 
   const [notesText, setNotesText] = useState(activeLecture?.notes || "");
   const [isSavedNotes, setIsSavedNotes] = useState(true);
+  const [selectedTranscriptLang, setSelectedTranscriptLang] = useState("en");
+
+  const transcriptLanguages = Object.keys(activeLecture?.transcript ?? {});
+  const transcriptEntries = activeLecture?.transcript?.[selectedTranscriptLang] ?? [];
+  const activeTranscriptIndex = transcriptEntries.findIndex(
+    (entry) => currentTime >= entry.start && currentTime < entry.end
+  );
 
   useEffect(() => {
     if (activeLecture) {
       setNotesText(activeLecture.notes || "");
       setIsSavedNotes(true);
+
+      const availableLanguages = Object.keys(activeLecture.transcript ?? {});
+      if (availableLanguages.length > 0 && !availableLanguages.includes(selectedTranscriptLang)) {
+        setSelectedTranscriptLang(availableLanguages[0]);
+      }
+      if (availableLanguages.length === 0) {
+        setSelectedTranscriptLang("en");
+      }
     }
-  }, [activeLecture?.id]);
+  }, [activeLecture?.id, activeLecture?.transcript, selectedTranscriptLang]);
 
   if (!activeLecture) return null;
 
@@ -213,8 +229,58 @@ export function YouTubePlayerModal() {
           </div>
 
           {/* Notes Side Panel */}
-          <div className="flex flex-col border-t lg:border-t-0 lg:border-l border-white/10 bg-[#0d0d18] p-5">
-            <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
+          <div className="flex flex-col border-t lg:border-t-0 lg:border-l border-white/10 bg-[#0d0d18] p-5 gap-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                <div className="flex items-center gap-2 text-white font-medium text-xs uppercase tracking-wider font-heading">
+                  <BookOpen className="w-4 h-4 text-[#00f0ff]" />
+                  <span>Transcript</span>
+                </div>
+                {transcriptLanguages.length > 0 && (
+                  <select
+                    value={selectedTranscriptLang}
+                    onChange={(event) => setSelectedTranscriptLang(event.target.value)}
+                    className="bg-white/[0.04] border border-white/10 text-[11px] text-gray-200 rounded-md px-2 py-1 focus:outline-none focus:border-[#00f0ff]"
+                  >
+                    {transcriptLanguages.map((language) => (
+                      <option key={language} value={language}>
+                        {language.toUpperCase()}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {transcriptLanguages.length > 0 ? (
+                <div className="max-h-64 overflow-y-auto pr-1 space-y-2">
+                  {transcriptEntries.map((entry, index) => (
+                    <button
+                      key={`${entry.start}-${entry.end}-${index}`}
+                      type="button"
+                      onClick={() => {
+                        seekTo(entry.start);
+                      }}
+                      className={`w-full text-left rounded-xl border px-2.5 py-2 transition-colors ${
+                        index === activeTranscriptIndex
+                          ? "border-[#00f0ff]/60 bg-[#00f0ff]/10 text-white"
+                          : "border-white/5 bg-white/[0.02] text-gray-300 hover:border-white/10 hover:bg-white/[0.04]"
+                      }`}
+                    >
+                      <div className="text-[10px] font-mono text-[#00f0ff] mb-1">
+                        {formatDigitalTime(entry.start)} - {formatDigitalTime(entry.end)}
+                      </div>
+                      <div className="text-xs leading-relaxed">{entry.text}</div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-3 text-[11px] leading-relaxed text-gray-400">
+                  No transcript available for this lecture yet. Add a transcript object with language keys such as <span className="text-[#00f0ff]">en</span>, <span className="text-[#00f0ff]">hi</span>, or <span className="text-[#00f0ff]">es</span> to enable multilingual captions.
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2 text-white font-medium text-xs uppercase tracking-wider font-heading">
                 <BookOpen className="w-4 h-4 text-[#00f0ff]" />
                 <span>Lecture Notes</span>
@@ -232,7 +298,7 @@ export function YouTubePlayerModal() {
               className="flex-1 w-full p-3 rounded-xl bg-white/[0.03] border border-white/10 text-white placeholder-gray-500 text-xs leading-relaxed resize-none focus:outline-none focus:border-[#00f0ff] font-mono"
             />
 
-            <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-[11px] text-gray-400">
+            <div className="pt-3 border-t border-white/10 flex items-center justify-between text-[11px] text-gray-400">
               <span className="flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-[#a855f7]" />
                 Notes automatically sync with AI Mentor context
