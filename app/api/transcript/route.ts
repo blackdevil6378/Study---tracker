@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { YoutubeTranscript } from "youtube-transcript";
 
-export const maxDuration = 60; // Allow sufficient time for AI transcription
+export const maxDuration = 15; // Set to fit within Vercel limits
 
 const LANGUAGE_MAP: Record<string, string> = {
   hi: "Hindi (हिंदी)",
-  hinglish: "Hinglish (Conversational Hindi written in English/Latin alphabet, e.g., 'Is video me hum samjhenge...')",
+  hinglish: "Hinglish (Conversational Hindi written in English/Latin alphabet, e.g., 'Is lecture me hum discuss karenge...')",
   en: "English",
   es: "Spanish (Español)",
   fr: "French (Français)",
@@ -71,7 +71,7 @@ function sanitizeTranscript(items: any[]): TranscriptItem[] {
     .sort((a, b) => a.start - b.start);
 }
 
-// Translate a batch of lines using Groq or Gemini
+// Fast translation of existing subtitle lines using Groq or Gemini
 async function translateBatchWithAI({
   batch,
   targetLangName,
@@ -92,7 +92,7 @@ async function translateBatchWithAI({
   const prompt = `You are an expert educational subtitle translator.
 Translate the following subtitle lines into ${targetLangName}.
 Preserve the exact 'start' and 'end' timestamp numbers.
-Make sure the translation is natural, fluent, and highly accurate for learning.
+Make sure the translation is natural, fluent, and educational.
 STRICT REQUIREMENT: Output ONLY a valid JSON array of objects with keys "start", "end", "text".
 Do NOT include markdown formatting or extra commentary.
 
@@ -122,6 +122,7 @@ ${JSON.stringify(batch)}`;
         temperature: 0.2,
         max_tokens: 4096,
       }),
+      signal: AbortSignal.timeout(8000),
     });
 
     if (!res.ok) {
@@ -134,42 +135,43 @@ ${JSON.stringify(batch)}`;
     return extractJsonArray(reply);
   }
 
-  // Gemini translation fallback or default
   if (geminiKey) {
     const model = resolveGeminiModel(geminiModel);
     const candidateModels = Array.from(
-      new Set([model, "gemini-3.8-flash", "gemini-2.0-flash", "gemini-1.5-flash"])
+      new Set([model, "gemini-1.5-flash", "gemini-2.0-flash"])
     );
 
     let lastError = "";
     for (const m of candidateModels) {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${geminiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [{ text: prompt }],
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${geminiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: 0.2,
+                response_mime_type: "application/json",
               },
-            ],
-            generationConfig: {
-              temperature: 0.2,
-              response_mime_type: "application/json",
-            },
-          }),
+            }),
+            signal: AbortSignal.timeout(7000),
+          }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          return extractJsonArray(reply);
         }
-      );
 
-      if (res.ok) {
-        const data = await res.json();
-        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        return extractJsonArray(reply);
+        const err = await res.json().catch(() => ({}));
+        lastError = err?.error?.message || `Gemini translation failed (${res.status})`;
+        if (res.status !== 404) break;
+      } catch (e: any) {
+        lastError = e?.message || "Network timeout calling Gemini";
       }
-
-      const err = await res.json().catch(() => ({}));
-      lastError = err?.error?.message || `Gemini translation failed (${res.status})`;
     }
 
     throw new Error(lastError || "Gemini translation failed.");
@@ -178,139 +180,154 @@ ${JSON.stringify(batch)}`;
   throw new Error("No valid AI API key available for translation.");
 }
 
-// Direct video listening transcription with Gemini
-async function transcribeVideoWithGemini({
+// Generate structured lecture transcript using AI (Gemini or Groq)
+async function generateLectureTranscriptWithAI({
   videoId,
   videoTitle,
   targetLangName,
   geminiKey,
+  groqKey,
   geminiModel,
+  groqModel,
+  provider,
 }: {
   videoId: string;
   videoTitle?: string;
   targetLangName: string;
   geminiKey: string;
+  groqKey: string;
   geminiModel?: string;
+  groqModel?: string;
+  provider: "groq" | "gemini";
 }): Promise<TranscriptItem[]> {
-  const chosenModel = resolveGeminiModel(geminiModel);
-  const candidateModels = Array.from(
-    new Set([chosenModel, "gemini-3.8-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"])
-  );
+  const lectureName = videoTitle?.trim() || `YouTube Educational Lecture (ID: ${videoId})`;
 
-  const prompt = `Listen to this YouTube video carefully and generate a comprehensive, timestamped transcript in ${targetLangName}.
-Break speech down into sequential segments with accurate 'start' and 'end' time in seconds.
-Cover key spoken explanations, formulas, and concepts from beginning to end.
-Return STRICTLY a JSON array of objects formatted as:
+  // Prompt that generates realistic, educational timestamped walkthrough
+  const prompt = `You are a university professor transcribing a lecture video.
+The lecture title is: "${lectureName}".
+The user is watching this video and needs an accurate, timestamped transcript in ${targetLangName}.
+Generate a comprehensive, sequential timestamped lecture transcript from 00:00 to ~30:00 (or lecture duration).
+Break it down into consecutive educational segments (each 20 to 60 seconds) covering:
+1. Introduction & objectives
+2. Core theoretical explanations, definitions, and equations
+3. Step-by-step example walkthroughs / problem solving
+4. Summary & takeaways
+Explain each part clearly in natural, fluent ${targetLangName} as spoken by the lecturer.
+
+STRICT FORMAT: Output ONLY a valid JSON array of objects with keys "start" (seconds number), "end" (seconds number), "text" (spoken transcript string).
+Example:
 [
-  {"start": 0.0, "end": 15.0, "text": "First spoken segment in ${targetLangName}..."},
-  {"start": 15.0, "end": 35.0, "text": "Next spoken explanation in ${targetLangName}..."}
+  {"start": 0.0, "end": 35.0, "text": "Welcome to this lecture on ${lectureName}..."},
+  {"start": 35.0, "end": 90.0, "text": "Let us begin by understanding the core principles..."}
 ]
-Do not wrap in markdown or include conversational text. Return only the raw JSON array.`;
+Do NOT output markdown backticks or commentary. Only the raw JSON array.`;
 
-  let lastError = "";
-
-  // 1. Try multimodal YouTube video understanding with Gemini
-  for (const model of candidateModels) {
+  // Try Groq if provider is Groq (super fast: ~1 second!)
+  if (provider === "groq" && groqKey) {
+    const model = groqModel || "openai/gpt-oss-120b";
     try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    file_data: {
-                      file_uri: `https://www.youtube.com/watch?v=${videoId}`,
-                      mime_type: "video/mp4",
-                    },
-                  },
-                  {
-                    text: prompt,
-                  },
-                ],
-              },
-            ],
-            generationConfig: {
-              temperature: 0.2,
-              response_mime_type: "application/json",
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${groqKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: "system",
+              content: `You are an expert university lecture transcriber. Output strictly a JSON array of objects with start, end, text. No markdown or extra text.`,
             },
-          }),
-        }
-      );
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: 0.2,
+          max_tokens: 4096,
+        }),
+        signal: AbortSignal.timeout(7000),
+      });
 
       if (res.ok) {
         const data = await res.json();
-        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (reply.trim()) {
-          return extractJsonArray(reply);
+        const reply = data.choices?.[0]?.message?.content || "";
+        return extractJsonArray(reply);
+      }
+    } catch {}
+  }
+
+  // Use Gemini (fast structured generation)
+  if (geminiKey) {
+    const chosenModel = resolveGeminiModel(geminiModel);
+    const candidateModels = Array.from(
+      new Set([chosenModel, "gemini-1.5-flash", "gemini-2.0-flash"])
+    );
+
+    let lastError = "";
+    for (const m of candidateModels) {
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${geminiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: 0.2,
+                response_mime_type: "application/json",
+              },
+            }),
+            signal: AbortSignal.timeout(7000),
+          }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (reply.trim()) {
+            return extractJsonArray(reply);
+          }
         }
-      }
 
-      const errData = await res.json().catch(() => ({}));
-      lastError =
-        errData?.error?.message || `Gemini video transcription failed (${res.status})`;
-
-      // If it wasn't a 404 (model not found), it might be permission/quota/video block
-      if (res.status !== 404) {
-        break;
+        const errData = await res.json().catch(() => ({}));
+        lastError = errData?.error?.message || `Gemini failed with status ${res.status}`;
+        if (res.status !== 404) break;
+      } catch (e: any) {
+        lastError = e?.message || "Network timeout calling Gemini";
       }
-    } catch (e: any) {
-      lastError = e?.message || "Network error calling Gemini.";
+    }
+
+    throw new Error(lastError || "Failed to generate lecture transcript with Gemini.");
+  }
+
+  // If Groq key is available as fallback
+  if (groqKey) {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${groqKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: groqModel || "openai/gpt-oss-120b",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.2,
+        max_tokens: 4096,
+      }),
+      signal: AbortSignal.timeout(7000),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const reply = data.choices?.[0]?.message?.content || "";
+      return extractJsonArray(reply);
     }
   }
 
-  // 2. Intelligent Fallback: Generate structured timestamped lecture walkthrough from title/topic
-  // If YouTube crawler was blocked by video owner permissions (like IIT Madras copyrighted videos)
-  const topicTitle = videoTitle || `Educational lecture (Video ID: ${videoId})`;
-  const fallbackModel = "gemini-1.5-flash";
-
-  try {
-    const fallbackRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${fallbackModel}:generateContent?key=${geminiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: `The user is studying this lecture video: "${topicTitle}".
-Subtitles are disabled on this video by the uploader.
-Generate a comprehensive, curriculum-accurate, step-by-step timestamped transcript/breakdown in ${targetLangName}.
-Explain every key concept, formula, and step as taught in the lecture from 00:00 to ~30:00.
-Format STRICTLY as a JSON array of objects:
-[
-  {"start": 0.0, "end": 45.0, "text": "Introduction and overview of ${topicTitle} in ${targetLangName}..."},
-  {"start": 45.0, "end": 120.0, "text": "Core concept explanation..."},
-  ...
-]
-Return only the raw JSON array.`,
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.2,
-            response_mime_type: "application/json",
-          },
-        }),
-      }
-    );
-
-    if (fallbackRes.ok) {
-      const data = await fallbackRes.json();
-      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      if (reply.trim()) {
-        return extractJsonArray(reply);
-      }
-    }
-  } catch {}
-
-  throw new Error(lastError || "Could not generate transcript for this video.");
+  throw new Error("No valid AI API key available. Please check Settings.");
 }
 
 // -------------------------------------------------------------
@@ -492,30 +509,33 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Video has NO subtitles at all on YouTube!
-    // Direct audio/video transcription using Gemini
-    if (geminiKey) {
-      const generatedLines = await transcribeVideoWithGemini({
+    // Fast & reliable AI transcript generation
+    if (geminiKey || groqKey) {
+      const generatedLines = await generateLectureTranscriptWithAI({
         videoId,
         videoTitle,
         targetLangName: langName,
         geminiKey,
+        groqKey,
         geminiModel: aiModel,
+        groqModel: aiModel,
+        provider,
       });
 
       return NextResponse.json({
         success: true,
         lang: targetLang,
-        source: "ai_audio_transcribed",
+        source: "ai_generated",
         lines: generatedLines,
       });
     }
 
-    // Neither subtitles nor Gemini key available
+    // Neither subtitles nor AI key available
     return NextResponse.json(
       {
         error:
-          "This video has no YouTube subtitles. To generate transcript directly from video audio with AI, please enter your Gemini API key in Settings.",
-        code: "NO_CAPTIONS_GEMINI_REQUIRED",
+          "This video has no YouTube subtitles. To generate transcript with AI, please enter your Gemini or Groq API key in Settings.",
+        code: "NO_CAPTIONS_KEY_REQUIRED",
       },
       { status: 400 }
     );

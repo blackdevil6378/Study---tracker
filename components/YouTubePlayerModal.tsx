@@ -176,9 +176,19 @@ export function YouTubePlayerModal() {
           }),
         });
 
-        const data = await res.json();
+        const rawText = await res.text();
+        let data: any = null;
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          throw new Error(
+            res.ok
+              ? "Invalid response from transcript service."
+              : `Server error (${res.status}): ${rawText.slice(0, 120)}`
+          );
+        }
 
-        if (res.ok && data.success && Array.isArray(data.lines) && data.lines.length > 0) {
+        if (res.ok && data?.success && Array.isArray(data.lines) && data.lines.length > 0) {
           updateLecture(activeLecture.id, {
             transcript: {
               ...existingTranscripts,
@@ -190,7 +200,7 @@ export function YouTubePlayerModal() {
             `AI Transcript generated in ${langInfo.label}! 🚀`
           );
         } else {
-          const err = data.error || "Failed to generate AI transcript.";
+          const err = data?.error || "Failed to generate AI transcript.";
           setTranscriptError(err);
           toast.error(err);
         }
