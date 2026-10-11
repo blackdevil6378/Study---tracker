@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   X,
@@ -11,6 +11,9 @@ import {
   BotMessageSquare,
   Sparkles,
   Gauge,
+  Loader2,
+  RefreshCw,
+  AlertCircle,
   Save,
   BookOpen,
 } from "lucide-react";
@@ -26,6 +29,7 @@ export function YouTubePlayerModal() {
   const toggleLectureComplete = useStudyStore((s) => s.toggleLectureComplete);
   const toggleLectureDifficult = useStudyStore((s) => s.toggleLectureDifficult);
   const setLectureNotes = useStudyStore((s) => s.setLectureNotes);
+  const updateLecture = useStudyStore((s) => s.updateLecture);
   const subjects = useStudyStore((s) => s.subjects);
 
   const {
@@ -40,6 +44,8 @@ export function YouTubePlayerModal() {
   const [notesText, setNotesText] = useState(activeLecture?.notes || "");
   const [isSavedNotes, setIsSavedNotes] = useState(true);
   const [selectedTranscriptLang, setSelectedTranscriptLang] = useState("en");
+  const [isLoadingTranscript, setIsLoadingTranscript] = useState(false);
+  const [transcriptError, setTranscriptError] = useState<string | null>(null);
 
   const transcriptLanguages = Object.keys(activeLecture?.transcript ?? {});
   const transcriptEntries = activeLecture?.transcript?.[selectedTranscriptLang] ?? [];
@@ -47,10 +53,36 @@ export function YouTubePlayerModal() {
     (entry) => currentTime >= entry.start && currentTime < entry.end
   );
 
+  const fetchTranscript = useCallback(async (videoId: string, lectureId: string, lang: string = "en") => {
+    setIsLoadingTranscript(true);
+    setTranscriptError(null);
+    try {
+      const res = await fetch(`/api/transcript?videoId=${videoId}&lang=${lang}`);
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        const detectedLang = data.lang || lang;
+        updateLecture(lectureId, {
+          transcript: {
+            [detectedLang]: data.lines,
+          },
+        });
+        setSelectedTranscriptLang(detectedLang);
+      } else {
+        setTranscriptError(data.error || "Could not fetch transcript.");
+      }
+    } catch {
+      setTranscriptError("Network error while fetching transcript.");
+    } finally {
+      setIsLoadingTranscript(false);
+    }
+  }, [updateLecture]);
+
   useEffect(() => {
     if (activeLecture) {
       setNotesText(activeLecture.notes || "");
       setIsSavedNotes(true);
+      setTranscriptError(null);
 
       const availableLanguages = Object.keys(activeLecture.transcript ?? {});
       if (availableLanguages.length > 0 && !availableLanguages.includes(selectedTranscriptLang)) {
@@ -58,9 +90,14 @@ export function YouTubePlayerModal() {
       }
       if (availableLanguages.length === 0) {
         setSelectedTranscriptLang("en");
+        // Auto-fetch transcript if not already loaded
+        if (activeLecture.videoId) {
+          fetchTranscript(activeLecture.videoId, activeLecture.id, "en");
+        }
       }
     }
-  }, [activeLecture?.id, activeLecture?.transcript, selectedTranscriptLang]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLecture?.id]);
 
   if (!activeLecture) return null;
 
@@ -273,9 +310,35 @@ export function YouTubePlayerModal() {
                     </button>
                   ))}
                 </div>
+              ) : isLoadingTranscript ? (
+                <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-6 flex flex-col items-center gap-2">
+                  <Loader2 className="w-5 h-5 text-[#00f0ff] animate-spin" />
+                  <span className="text-[11px] text-gray-400">Fetching transcript...</span>
+                </div>
+              ) : transcriptError ? (
+                <div className="rounded-xl border border-dashed border-amber-500/20 bg-amber-500/[0.03] p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-[11px] text-amber-400">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{transcriptError}</span>
+                  </div>
+                  <button
+                    onClick={() => activeLecture && fetchTranscript(activeLecture.videoId, activeLecture.id, selectedTranscriptLang)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/10 text-[10px] text-gray-300 hover:text-white hover:bg-white/[0.1] transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Retry</span>
+                  </button>
+                </div>
               ) : (
-                <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-3 text-[11px] leading-relaxed text-gray-400">
-                  No transcript available for this lecture yet. Add a transcript object with language keys such as <span className="text-[#00f0ff]">en</span>, <span className="text-[#00f0ff]">hi</span>, or <span className="text-[#00f0ff]">es</span> to enable multilingual captions.
+                <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-3 text-[11px] leading-relaxed text-gray-400 space-y-2">
+                  <p>No transcript available for this video.</p>
+                  <button
+                    onClick={() => activeLecture && fetchTranscript(activeLecture.videoId, activeLecture.id, "en")}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00f0ff]/10 border border-[#00f0ff]/20 text-[10px] text-[#00f0ff] hover:bg-[#00f0ff]/20 transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Fetch Transcript</span>
+                  </button>
                 </div>
               )}
             </div>
