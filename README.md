@@ -6,9 +6,10 @@
 
 ## 🚀 Key Features
 
-1. **YouTube Playlist Course Ingestion**
-   - Direct support for `youtube.com/playlist?list=...`, `watch?v=..&list=..`, and short links.
-   - Paginates and imports playlists of **500+ videos** via YouTube Data API v3 with ISO 8601 duration parsing.
+1. **YouTube Playlist & Single Video / Custom Course Ingestion**
+   - Import full YouTube playlists (`playlist?list=...`) or add individual single videos (`watch?v=...`, `youtu.be/...`, shorts).
+   - Create custom playlists to build your own curated collections of lectures.
+   - Paginates and imports playlists of **500+ videos** via YouTube Data API v3 with ISO 8601 duration parsing, with zero-config web fallbacks.
    - Filters out deleted/private videos and reports skipped counts.
    - Prevents duplicate imports with a one-click **Re-sync** button to append newly uploaded lectures.
 
@@ -58,6 +59,11 @@
    - Scheduled daily browser notifications & evening streak-saver nudges.
    - Global keyboard shortcuts: `⌘K` / `Ctrl+K` for command palette, `N` for new playlist, `C` for calendar, `A` for AI mentor.
    - Study data is cached in `localStorage` and can sync privately to Supabase across signed-in devices. Gemini, Groq, and YouTube API keys remain local to each browser.
+
+7. **User Feedback & Suggestions System**
+   - Built-in glassmorphic feedback modal accessible from the sidebar, command palette, and Settings.
+   - 5-Star rating system, category tags (*Bug Report*, *Feature Request*, *General Feedback*, *Praise*), and message logging.
+   - Saves feedback history locally and syncs to cloud storage.
 
 ---
 

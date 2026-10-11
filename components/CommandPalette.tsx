@@ -14,6 +14,7 @@ import {
   Timer,
   BookOpen,
   ArrowRight,
+  MessageSquareHeart,
 } from "lucide-react";
 import { useStudyStore } from "@/store/useStudyStore";
 
@@ -23,6 +24,7 @@ export function CommandPalette() {
   const setIsOpen = useStudyStore((s) => s.setCommandPaletteOpen);
   const setIsAddPlaylistOpen = useStudyStore((s) => s.setIsAddPlaylistOpen);
   const setIsPomodoroOpen = useStudyStore((s) => s.setIsPomodoroOpen);
+  const setIsFeedbackOpen = useStudyStore((s) => s.setIsFeedbackOpen);
   const setActiveVideoLecture = useStudyStore((s) => s.setActiveVideoLecture);
 
   const subjects = useStudyStore((s) => s.subjects);
@@ -150,6 +152,17 @@ export function CommandPalette() {
               >
                 <Timer className="w-4 h-4 text-[#ff2e97]" />
                 <span className="flex-1 font-medium">Open Pomodoro Timer</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsFeedbackOpen(true);
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs text-gray-300 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
+              >
+                <MessageSquareHeart className="w-4 h-4 text-[#00f0ff]" />
+                <span className="flex-1 font-medium">Share Feedback & Suggestions</span>
               </button>
             </div>
           </div>

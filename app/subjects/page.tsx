@@ -41,6 +41,7 @@ function SubjectsContent() {
   const lectures = useStudyStore((s) => s.lectures);
   const notes = useStudyStore((s) => s.notes);
   const setIsAddPlaylistOpen = useStudyStore((s) => s.setIsAddPlaylistOpen);
+  const setAddContentModalConfig = useStudyStore((s) => s.setAddContentModalConfig);
   const setActiveVideoLecture = useStudyStore((s) => s.setActiveVideoLecture);
   const toggleLectureComplete = useStudyStore((s) => s.toggleLectureComplete);
   const toggleLectureDifficult = useStudyStore((s) => s.toggleLectureDifficult);
@@ -321,21 +322,37 @@ function SubjectsContent() {
               All Playlists ({subjectLectures.length})
             </button>
 
-            {playlists
-              .filter((p) => p.subjectId === activeSubject.id)
-              .map((pl) => (
-                <button
-                  key={pl.id}
-                  onClick={() => setActivePlaylistId(pl.id)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer truncate max-w-xs ${
-                    activePlaylistId === pl.id
-                      ? "bg-[#00f0ff] text-black shadow-[0_0_15px_rgba(0,240,255,0.3)]"
-                      : "bg-white/[0.04] text-gray-400 hover:text-white border border-white/5"
-                  }`}
-                >
-                  {pl.title}
-                </button>
-              ))}
+              {playlists
+                .filter((p) => p.subjectId === activeSubject.id)
+                .map((pl) => (
+                  <button
+                    key={pl.id}
+                    onClick={() => setActivePlaylistId(pl.id)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer truncate max-w-xs ${
+                      activePlaylistId === pl.id
+                        ? "bg-[#00f0ff] text-black shadow-[0_0_15px_rgba(0,240,255,0.3)]"
+                        : "bg-white/[0.04] text-gray-400 hover:text-white border border-white/5"
+                    }`}
+                  >
+                    {pl.title}
+                  </button>
+                ))}
+
+            <button
+              onClick={() =>
+                setAddContentModalConfig({
+                  open: true,
+                  mode: "single_video",
+                  subjectId: activeSubject.id,
+                  playlistId: activePlaylistId !== "all" ? activePlaylistId : undefined,
+                })
+              }
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#a855f7]/15 border border-[#a855f7]/30 text-[#a855f7] hover:bg-[#a855f7]/25 transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ml-auto"
+              title="Add a single YouTube video to this subject or custom playlist"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>+ Add Video</span>
+            </button>
           </div>
 
           {/* Search, Filter & Bulk Action Toolbar */}

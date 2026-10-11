@@ -87,6 +87,58 @@ export function extractPlaylistId(urlOrId: string): string | null {
 }
 
 /**
+ * Extracts a YouTube video ID from various URL formats or raw 11-char ID.
+ * Supports:
+ * - https://www.youtube.com/watch?v=dQw4w9WgXcQ
+ * - https://youtu.be/dQw4w9WgXcQ
+ * - https://www.youtube.com/shorts/dQw4w9WgXcQ
+ * - https://www.youtube.com/embed/dQw4w9WgXcQ
+ * - dQw4w9WgXcQ (raw 11-char ID)
+ */
+export function extractVideoId(urlOrId: string): string | null {
+  if (!urlOrId) return null;
+  const trimmed = urlOrId.trim();
+
+  // Raw 11-char video ID
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  try {
+    const url = new URL(trimmed);
+    const v = url.searchParams.get("v");
+    if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) {
+      return v;
+    }
+
+    if (url.hostname.includes("youtu.be")) {
+      const pathname = url.pathname.replace(/^\//, "");
+      if (/^[a-zA-Z0-9_-]{11}$/.test(pathname)) {
+        return pathname;
+      }
+    }
+
+    const pathParts = url.pathname.split("/").filter(Boolean);
+    const lastPart = pathParts[pathParts.length - 1];
+    if (
+      (pathParts.includes("shorts") || pathParts.includes("embed") || pathParts.includes("v")) &&
+      lastPart &&
+      /^[a-zA-Z0-9_-]{11}$/.test(lastPart)
+    ) {
+      return lastPart;
+    }
+  } catch {
+    // Regex fallback
+    const match = trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([a-zA-Z0-9_-]{11})/);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
+
+/**
  * Format date string to YYYY-MM-DD
  */
 export function toISODate(date: Date = new Date()): string {

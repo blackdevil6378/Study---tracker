@@ -10,6 +10,69 @@ function parseDurationText(str: string): number {
 }
 
 /**
+ * Direct web & oEmbed fallback to extract single YouTube video details
+ * without requiring a Google Cloud YouTube API key.
+ */
+async function fetchVideoViaWeb(videoId: string) {
+  let title = "YouTube Lecture";
+  let channelTitle = "YouTube Channel";
+  let thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  let durationSec = 0;
+
+  // Try oEmbed for clean title, author and thumbnail
+  try {
+    const oembedRes = await fetch(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+      { headers: { "User-Agent": "Mozilla/5.0" } }
+    );
+    if (oembedRes.ok) {
+      const oembed = await oembedRes.json();
+      if (oembed.title) title = oembed.title;
+      if (oembed.author_name) channelTitle = oembed.author_name;
+      if (oembed.thumbnail_url) thumbnail = oembed.thumbnail_url;
+    }
+  } catch {}
+
+  // Fetch page HTML to extract duration
+  try {
+    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+    });
+    if (pageRes.ok) {
+      const html = await pageRes.text();
+      const durMatch = html.match(/"approxDurationMs":"(\d+)"/);
+      if (durMatch && durMatch[1]) {
+        durationSec = Math.round(parseInt(durMatch[1], 10) / 1000);
+      } else {
+        const lenMatch = html.match(/"lengthSeconds":"(\d+)"/);
+        if (lenMatch && lenMatch[1]) {
+          durationSec = parseInt(lenMatch[1], 10);
+        }
+      }
+
+      if (title === "YouTube Lecture") {
+        const titleMatch = html.match(/<title>(.+?) - YouTube<\/title>/);
+        if (titleMatch && titleMatch[1]) {
+          title = titleMatch[1];
+        }
+      }
+    }
+  } catch {}
+
+  return {
+    videoId,
+    title,
+    channelTitle,
+    thumbnail,
+    durationSec,
+  };
+}
+
+/**
  * Direct web fallback to extract public YouTube playlist details
  * without requiring a Google Cloud YouTube API key.
  */
@@ -313,6 +376,57 @@ export async function POST(req: NextRequest) {
               scrapeErr.message ||
               "Could not fetch playlist. Please check that the URL is public or unlisted.",
           },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (action === "fetch_video") {
+      const { videoId } = body;
+      if (!videoId) {
+        return NextResponse.json({ error: "Missing videoId parameter." }, { status: 400 });
+      }
+
+      // Try YouTube Data API if key exists
+      if (youtubeKey && youtubeKey.trim()) {
+        try {
+          const apiRes = await fetch(
+            `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${youtubeKey}`
+          );
+          if (apiRes.ok) {
+            const data = await apiRes.json();
+            const item = data.items?.[0];
+            if (item) {
+              const title = item.snippet?.title || "YouTube Video";
+              const channelTitle = item.snippet?.channelTitle || "YouTube Channel";
+              const thumbnail =
+                item.snippet?.thumbnails?.maxres?.url ||
+                item.snippet?.thumbnails?.high?.url ||
+                item.snippet?.thumbnails?.medium?.url ||
+                `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+              const durationSec = parseISO8601Duration(item.contentDetails?.duration);
+
+              return NextResponse.json({
+                videoId,
+                title,
+                channelTitle,
+                thumbnail,
+                durationSec,
+              });
+            }
+          }
+        } catch (apiErr) {
+          console.warn("YouTube API video fetch failed, falling back to web:", apiErr);
+        }
+      }
+
+      // Web/oEmbed fallback
+      try {
+        const videoData = await fetchVideoViaWeb(videoId);
+        return NextResponse.json(videoData);
+      } catch (err: any) {
+        return NextResponse.json(
+          { error: err.message || "Failed to fetch video details." },
           { status: 400 }
         );
       }

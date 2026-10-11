@@ -15,6 +15,7 @@ import {
   Search,
   Sparkles,
   BookOpen,
+  MessageSquareHeart,
 } from "lucide-react";
 import { useStudyStore } from "@/store/useStudyStore";
 
@@ -33,6 +34,7 @@ export function Sidebar() {
   const setIsAddPlaylistOpen = useStudyStore((s) => s.setIsAddPlaylistOpen);
   const setIsPomodoroOpen = useStudyStore((s) => s.setIsPomodoroOpen);
   const setCommandPaletteOpen = useStudyStore((s) => s.setCommandPaletteOpen);
+  const setIsFeedbackOpen = useStudyStore((s) => s.setIsFeedbackOpen);
 
   return (
     <aside className="hidden md:flex flex-col w-64 h-screen fixed left-0 top-0 bg-[#07070c]/90 backdrop-blur-xl border-r border-white/[0.08] z-30 select-none">
@@ -114,11 +116,11 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Pomodoro Timer Dock in Sidebar Footer */}
-      <div className="p-4 border-t border-white/[0.08]">
+      {/* Pomodoro Timer Dock & Feedback in Sidebar Footer */}
+      <div className="p-4 border-t border-white/[0.08] space-y-2">
         <button
           onClick={() => setIsPomodoroOpen(true)}
-          className="w-full flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:bg-white/[0.07] hover:border-[#ff2e97]/40 transition-all cursor-pointer group"
+          className="w-full flex items-center justify-between p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:bg-white/[0.07] hover:border-[#ff2e97]/40 transition-all cursor-pointer group"
         >
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-[#ff2e97]/15 border border-[#ff2e97]/30 flex items-center justify-center text-[#ff2e97] group-hover:scale-105 transition-transform">
@@ -132,6 +134,17 @@ export function Sidebar() {
           <span className="text-[10px] font-mono text-[#ff2e97] bg-[#ff2e97]/10 px-2 py-0.5 rounded border border-[#ff2e97]/20">
             Start
           </span>
+        </button>
+
+        <button
+          onClick={() => setIsFeedbackOpen(true)}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.06] hover:border-[#00f0ff]/30 text-gray-400 hover:text-white transition-all cursor-pointer group"
+        >
+          <div className="flex items-center gap-2">
+            <MessageSquareHeart className="w-3.5 h-3.5 text-[#00f0ff] group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-medium">Feedback</span>
+          </div>
+          <span className="text-[10px] text-gray-500 font-mono">Share ideas</span>
         </button>
       </div>
     </aside>

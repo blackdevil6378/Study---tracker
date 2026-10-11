@@ -10,6 +10,7 @@ import {
   Settings,
   ChatMessage,
   SubjectNote,
+  UserFeedback,
 } from "@/types";
 import { generateId, toISODate } from "@/lib/utils";
 import { deleteNoteFile, clearAllNoteFiles, saveNoteHtmlText } from "@/lib/notesDb";
@@ -22,6 +23,7 @@ interface StudyStoreState {
   sessions: StudySession[];
   threads: ChatThread[];
   notes: SubjectNote[];
+  feedbacks: UserFeedback[];
   settings: Settings;
   
   // Ephemeral UI states
@@ -29,12 +31,26 @@ interface StudyStoreState {
   isAddPlaylistOpen: boolean;
   isPomodoroOpen: boolean;
   commandPaletteOpen: boolean;
+  isFeedbackOpen: boolean;
+  addContentInitialMode: 'playlist' | 'single_video';
+  addContentTargetSubjectId?: string;
+  addContentTargetPlaylistId?: string;
 
   // Actions
   setActiveVideoLecture: (lecture: Lecture | null) => void;
   setIsAddPlaylistOpen: (open: boolean) => void;
   setIsPomodoroOpen: (open: boolean) => void;
   setCommandPaletteOpen: (open: boolean) => void;
+  setIsFeedbackOpen: (open: boolean) => void;
+  setAddContentModalConfig: (config: {
+    open: boolean;
+    mode?: 'playlist' | 'single_video';
+    subjectId?: string;
+    playlistId?: string;
+  }) => void;
+
+  // Feedback Actions
+  addFeedback: (feedback: Omit<UserFeedback, "id" | "createdAt">) => UserFeedback;
 
   // Subject Actions
   addSubject: (subject: Omit<Subject, "id" | "createdAt">) => Subject;
@@ -56,6 +72,13 @@ interface StudyStoreState {
         Partial<Lecture>
     >
   ) => void;
+  addSingleLecture: (
+    lecture: Pick<
+      Lecture,
+      "playlistId" | "subjectId" | "videoId" | "title" | "thumbnail" | "durationSec"
+    > &
+      Partial<Lecture>
+  ) => Lecture;
   updateLecture: (id: string, updates: Partial<Lecture>) => void;
   toggleLectureComplete: (id: string, forceStatus?: boolean) => void;
   setLectureNotes: (id: string, notes: string) => void;
@@ -121,17 +144,47 @@ export const useStudyStore = create<StudyStoreState>()(
       sessions: [],
       threads: [],
       notes: [],
+      feedbacks: [],
       settings: defaultSettings,
 
       activeVideoLecture: null,
       isAddPlaylistOpen: false,
       isPomodoroOpen: false,
       commandPaletteOpen: false,
+      isFeedbackOpen: false,
+      addContentInitialMode: "playlist",
+      addContentTargetSubjectId: undefined,
+      addContentTargetPlaylistId: undefined,
 
       setActiveVideoLecture: (lecture) => set({ activeVideoLecture: lecture }),
-      setIsAddPlaylistOpen: (open) => set({ isAddPlaylistOpen: open }),
+      setIsAddPlaylistOpen: (open) =>
+        set({
+          isAddPlaylistOpen: open,
+          ...(open ? {} : { addContentInitialMode: "playlist", addContentTargetSubjectId: undefined, addContentTargetPlaylistId: undefined }),
+        }),
       setIsPomodoroOpen: (open) => set({ isPomodoroOpen: open }),
       setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
+      setIsFeedbackOpen: (open) => set({ isFeedbackOpen: open }),
+      setAddContentModalConfig: (config) =>
+        set({
+          isAddPlaylistOpen: config.open,
+          addContentInitialMode: config.mode || "playlist",
+          addContentTargetSubjectId: config.subjectId,
+          addContentTargetPlaylistId: config.playlistId,
+        }),
+
+      // Feedback Actions
+      addFeedback: (fb) => {
+        const newFeedback: UserFeedback = {
+          ...fb,
+          id: generateId("fb"),
+          createdAt: new Date().toISOString(),
+        };
+        set((state) => ({
+          feedbacks: [newFeedback, ...(state.feedbacks || [])],
+        }));
+        return newFeedback;
+      },
 
       // Subject Actions
       addSubject: (data) => {
@@ -208,6 +261,41 @@ export const useStudyStore = create<StudyStoreState>()(
           id: generateId("lec"),
         }));
         set((state) => ({ lectures: [...state.lectures, ...newLectures] }));
+      },
+
+      addSingleLecture: (lectureData) => {
+        const state = get();
+        const existingPlaylistLectures = state.lectures.filter(
+          (l) => l.playlistId === lectureData.playlistId
+        );
+        const order =
+          lectureData.order || existingPlaylistLectures.length + 1;
+
+        const newLecture: Lecture = {
+          completed: false,
+          watchedSec: 0,
+          notes: "",
+          difficult: false,
+          revisionCount: 0,
+          ...lectureData,
+          order,
+          id: generateId("lec"),
+        };
+
+        set((s) => ({
+          lectures: [...s.lectures, newLecture],
+          playlists: s.playlists.map((p) => {
+            if (p.id !== lectureData.playlistId) return p;
+            return {
+              ...p,
+              totalDurationSec:
+                (p.totalDurationSec || 0) + (lectureData.durationSec || 0),
+              thumbnail: p.thumbnail || lectureData.thumbnail,
+            };
+          }),
+        }));
+
+        return newLecture;
       },
 
       updateLecture: (id, updates) => {
@@ -817,6 +905,7 @@ export const useStudyStore = create<StudyStoreState>()(
         threads: state.threads,
         settings: state.settings,
         notes: state.notes,
+        feedbacks: state.feedbacks || [],
       }),
     }
   )

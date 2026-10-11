@@ -19,6 +19,7 @@ import {
   Sparkles,
   Loader2,
   RefreshCw,
+  MessageSquareHeart,
 } from "lucide-react";
 import { useStudyStore } from "@/store/useStudyStore";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -31,6 +32,8 @@ export default function SettingsPage() {
   const updateSettings = useStudyStore((s) => s.updateSettings);
   const resetAllData = useStudyStore((s) => s.resetAllData);
   const importAllData = useStudyStore((s) => s.importAllData);
+  const feedbacks = useStudyStore((s) => s.feedbacks);
+  const setIsFeedbackOpen = useStudyStore((s) => s.setIsFeedbackOpen);
   const allStoreState = useStudyStore.getState();
   const cloudSync = useCloudSync();
 
@@ -876,6 +879,51 @@ export default function SettingsPage() {
             Send Test Notification
           </button>
         </div>
+      </div>
+
+      {/* Feedback & Feature Requests */}
+      <div className="p-6 rounded-2xl glass-panel bg-white/[0.02] border border-white/10 space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="text-sm uppercase tracking-wider font-semibold text-gray-300 font-heading flex items-center gap-2">
+              <MessageSquareHeart className="w-4 h-4 text-[#00f0ff]" />
+              <span>Feedback & Feature Suggestions</span>
+            </h2>
+            <p className="text-xs text-gray-400 mt-1">
+              Have an idea or facing an issue? Send us your feedback or report bugs directly.
+            </p>
+          </div>
+          <button
+            onClick={() => setIsFeedbackOpen(true)}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#00f0ff] to-[#a855f7] text-black font-semibold text-xs hover:brightness-110 shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all flex items-center gap-1.5 cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-black" />
+            <span>Open Feedback Form</span>
+          </button>
+        </div>
+
+        {feedbacks && feedbacks.length > 0 && (
+          <div className="pt-2 space-y-2 border-t border-white/5">
+            <span className="text-[11px] text-gray-400 font-mono block">
+              Your Submitted Feedback ({feedbacks.length}):
+            </span>
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {feedbacks.map((fb) => (
+                <div key={fb.id} className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-mono text-[#00f0ff] uppercase text-[10px] px-1.5 py-0.5 rounded bg-[#00f0ff]/10 border border-[#00f0ff]/20">
+                      {fb.category}
+                    </span>
+                    <span className="text-gray-500 text-[10px] font-mono">
+                      {new Date(fb.createdAt).toLocaleDateString()} • {"⭐".repeat(fb.rating)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-300 line-clamp-2">{fb.message}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Storage & Backup / Import */}

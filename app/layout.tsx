@@ -6,6 +6,7 @@ import { AddPlaylistModal } from "@/components/AddPlaylistModal";
 import { YouTubePlayerModal } from "@/components/YouTubePlayerModal";
 import { PomodoroWidget } from "@/components/PomodoroWidget";
 import { CommandPalette } from "@/components/CommandPalette";
+import { FeedbackModal } from "@/components/FeedbackModal";
 import { CloudSyncProvider } from "@/components/CloudSyncProvider";
 import { Toaster } from "sonner";
 
@@ -74,6 +75,7 @@ export default function RootLayout({
           <YouTubePlayerModal />
           <PomodoroWidget />
           <CommandPalette />
+          <FeedbackModal />
 
           {/* Toaster Notification Container */}
           <Toaster

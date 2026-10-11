@@ -16,6 +16,7 @@ export interface Playlist {
   thumbnail: string;
   importedAt: string;
   totalDurationSec: number;
+  isCustom?: boolean;
 }
 
 export interface TranscriptLine {
@@ -139,3 +140,23 @@ export interface ImportPreviewData {
   skippedCount: number;
   items: YouTubePlaylistItem[];
 }
+
+export interface SingleVideoPreviewData {
+  videoId: string;
+  title: string;
+  channelTitle: string;
+  thumbnail: string;
+  durationSec: number;
+}
+
+export type FeedbackCategory = 'general' | 'bug' | 'feature' | 'praise';
+
+export interface UserFeedback {
+  id: string;
+  rating: number; // 1 to 5
+  category: FeedbackCategory;
+  message: string;
+  email?: string;
+  createdAt: string; // ISO date string
+}
+
