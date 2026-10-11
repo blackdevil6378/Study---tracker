@@ -16,12 +16,11 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    let { action, model = "gemini-1.5-flash", contents, systemInstruction, attachments } = body;
+    let { action, model = "gemini-3.8-flash", contents, systemInstruction, attachments } = body;
 
-    // Auto-remap non-existent models
-    if (!model || model.includes("3.8") || model.includes("2.5")) {
-      model = "gemini-1.5-flash";
-    }
+    const candidateModels = Array.from(
+      new Set([model || "gemini-3.8-flash", "gemini-2.0-flash", "gemini-1.5-flash"])
+    );
 
     // Support attachments (images / PDFs) as inlineData parts for Gemini
     if (attachments && Array.isArray(attachments) && attachments.length > 0) {
@@ -58,21 +57,26 @@ export async function POST(req: NextRequest) {
 
     // Action 1: Test Key
     if (action === "test") {
-      const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
-      const res = await fetch(testUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: "Hello! Reply with 'OK'." }] }],
-        }),
-      });
+      let res: Response | null = null;
+      for (const m of candidateModels) {
+        const testUrl = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${geminiKey}`;
+        res = await fetch(testUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: "Hello! Reply with 'OK'." }] }],
+          }),
+        });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
+        if (res.ok || res.status !== 404) break;
+      }
+
+      if (!res || !res.ok) {
+        const errorData = await res?.json().catch(() => ({}));
         const message =
           errorData?.error?.message ||
-          `Gemini API rejected key (Status: ${res.status})`;
-        return NextResponse.json({ error: message }, { status: res.status });
+          `Gemini API rejected key (Status: ${res?.status || 500})`;
+        return NextResponse.json({ error: message }, { status: res?.status || 500 });
       }
 
       return NextResponse.json({
@@ -83,8 +87,6 @@ export async function POST(req: NextRequest) {
 
     // Action 2: Chat Stream via Server-Sent Events (SSE)
     if (action === "chat_stream") {
-      const streamUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${geminiKey}`;
-
       const payload: any = {
         contents: contents || [],
         generationConfig: {
@@ -100,21 +102,27 @@ export async function POST(req: NextRequest) {
         };
       }
 
-      const geminiRes = await fetch(streamUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      let geminiRes: Response | null = null;
+      for (const m of candidateModels) {
+        const streamUrl = `https://generativelanguage.googleapis.com/v1beta/models/${m}:streamGenerateContent?alt=sse&key=${geminiKey}`;
+        geminiRes = await fetch(streamUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
-      if (!geminiRes.ok) {
-        const errJson = await geminiRes.json().catch(() => ({}));
-        let errMsg = errJson?.error?.message || `Gemini API returned status ${geminiRes.status}`;
-        if (geminiRes.status === 400 && errMsg.includes("API key not valid")) {
+        if (geminiRes.ok || geminiRes.status !== 404) break;
+      }
+
+      if (!geminiRes || !geminiRes.ok) {
+        const errJson = await geminiRes?.json().catch(() => ({}));
+        let errMsg = errJson?.error?.message || `Gemini API returned status ${geminiRes?.status || 500}`;
+        if (geminiRes?.status === 400 && errMsg.includes("API key not valid")) {
           errMsg = "Invalid Gemini API key. Please check your key in Settings.";
-        } else if (geminiRes.status === 429) {
+        } else if (geminiRes?.status === 429) {
           errMsg = "Gemini API rate limit exceeded. Please wait a few moments or try again.";
         }
-        return NextResponse.json({ error: errMsg }, { status: geminiRes.status });
+        return NextResponse.json({ error: errMsg }, { status: geminiRes?.status || 500 });
       }
 
       // Stream the response back to client using TransformStream
@@ -123,7 +131,7 @@ export async function POST(req: NextRequest) {
 
       const readable = new ReadableStream({
         async start(controller) {
-          const reader = geminiRes.body?.getReader();
+          const reader = geminiRes!.body?.getReader();
           if (!reader) {
             controller.close();
             return;
@@ -155,7 +163,6 @@ export async function POST(req: NextRequest) {
 
     // Action 3: Non-streaming generate content
     if (action === "generate") {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
       const payload: any = {
         contents: contents || [],
         generationConfig: {
@@ -170,17 +177,23 @@ export async function POST(req: NextRequest) {
         };
       }
 
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      let res: Response | null = null;
+      for (const m of candidateModels) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${geminiKey}`;
+        res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
+        if (res.ok || res.status !== 404) break;
+      }
+
+      if (!res || !res.ok) {
+        const errJson = await res?.json().catch(() => ({}));
         return NextResponse.json(
           { error: errJson?.error?.message || "Gemini generation failed" },
-          { status: res.status }
+          { status: res?.status || 500 }
         );
       }
 

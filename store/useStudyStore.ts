@@ -123,7 +123,7 @@ const defaultSettings: Settings = {
   geminiKey: "",
   groqKey: "",
   youtubeKey: "",
-  geminiModel: "gemini-1.5-flash",
+  geminiModel: "gemini-3.8-flash",
   groqModel: "openai/gpt-oss-120b",
   dailyGoalLectures: 3,
   language: "hinglish",
@@ -875,12 +875,8 @@ export const useStudyStore = create<StudyStoreState>()(
             ...persistedState.settings,
           };
 
-          if (
-            !persistedState.settings.geminiModel ||
-            persistedState.settings.geminiModel.includes("3.8") ||
-            persistedState.settings.geminiModel.includes("2.5")
-          ) {
-            persistedState.settings.geminiModel = "gemini-1.5-flash";
+          if (!persistedState.settings.geminiModel) {
+            persistedState.settings.geminiModel = "gemini-3.8-flash";
           }
 
           if (

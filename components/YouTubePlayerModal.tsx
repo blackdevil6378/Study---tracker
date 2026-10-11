@@ -152,7 +152,7 @@ export function YouTubePlayerModal() {
       const activeModel =
         activeProvider === "groq"
           ? settings.groqModel || "openai/gpt-oss-120b"
-          : settings.geminiModel || "gemini-1.5-flash";
+          : settings.geminiModel || "gemini-3.8-flash";
 
       try {
         // Collect existing transcript if any to translate faster

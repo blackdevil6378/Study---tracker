@@ -32,19 +32,8 @@ interface TranscriptItem {
 }
 
 function resolveGeminiModel(rawModel?: string): string {
-  if (!rawModel) return "gemini-1.5-flash";
-  const cleaned = rawModel.trim();
-  if (cleaned.includes("3.8") || cleaned.includes("2.5")) {
-    return "gemini-1.5-flash";
-  }
-  if (
-    cleaned === "gemini-1.5-flash" ||
-    cleaned === "gemini-2.0-flash" ||
-    cleaned === "gemini-1.5-pro"
-  ) {
-    return cleaned;
-  }
-  return "gemini-1.5-flash";
+  if (!rawModel) return "gemini-3.8-flash";
+  return rawModel.trim();
 }
 
 function extractJsonArray(text: string): TranscriptItem[] {
@@ -149,7 +138,7 @@ ${JSON.stringify(batch)}`;
   if (geminiKey) {
     const model = resolveGeminiModel(geminiModel);
     const candidateModels = Array.from(
-      new Set([model, "gemini-1.5-flash", "gemini-2.0-flash"])
+      new Set([model, "gemini-3.8-flash", "gemini-2.0-flash", "gemini-1.5-flash"])
     );
 
     let lastError = "";
@@ -205,7 +194,7 @@ async function transcribeVideoWithGemini({
 }): Promise<TranscriptItem[]> {
   const chosenModel = resolveGeminiModel(geminiModel);
   const candidateModels = Array.from(
-    new Set([chosenModel, "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"])
+    new Set([chosenModel, "gemini-3.8-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"])
   );
 
   const prompt = `Listen to this YouTube video carefully and generate a comprehensive, timestamped transcript in ${targetLangName}.
