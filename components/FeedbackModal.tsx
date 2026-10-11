@@ -12,6 +12,8 @@ import {
   CheckCircle2,
   Loader2,
   Sparkles,
+  ExternalLink,
+  Github,
 } from "lucide-react";
 import { useStudyStore } from "@/store/useStudyStore";
 import { FeedbackCategory } from "@/types";
@@ -38,6 +40,7 @@ export function FeedbackModal() {
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [issueUrl, setIssueUrl] = useState<string | null>(null);
 
   if (!isFeedbackOpen) return null;
 
@@ -50,6 +53,7 @@ export function FeedbackModal() {
 
     setIsSubmitting(true);
     try {
+      // Save locally first
       addFeedback({
         rating,
         category,
@@ -57,14 +61,35 @@ export function FeedbackModal() {
         email: email.trim() || undefined,
       });
 
-      setSubmitted(true);
-      toast.success("Thank you! Your feedback has been recorded. 🚀");
+      // Submit to GitHub via API
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category,
+          message: message.trim(),
+          rating,
+          email: email.trim() || undefined,
+        }),
+      });
 
-      setTimeout(() => {
-        handleClose();
-      }, 1500);
-    } catch {
-      toast.error("Failed to save feedback.");
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setIssueUrl(data.issueUrl || null);
+        setSubmitted(true);
+        toast.success("Feedback submitted to GitHub! 🚀");
+      } else {
+        // API failed but local save succeeded
+        setSubmitted(true);
+        toast.success("Feedback saved locally! (GitHub sync unavailable)");
+        console.warn("GitHub feedback API error:", data.error);
+      }
+    } catch (err) {
+      // Network error — still saved locally
+      setSubmitted(true);
+      toast.success("Feedback saved locally! (Could not reach server)");
+      console.warn("Feedback submit network error:", err);
     } finally {
       setIsSubmitting(false);
     }
@@ -77,6 +102,7 @@ export function FeedbackModal() {
     setRating(5);
     setHoverRating(0);
     setSubmitted(false);
+    setIssueUrl(null);
   };
 
   return (
@@ -103,6 +129,24 @@ export function FeedbackModal() {
                 Your thoughts help us continuously enhance the Study Tracker experience.
               </p>
             </div>
+            {issueUrl && (
+              <a
+                href={issueUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.05] border border-white/10 text-[#00f0ff] text-xs font-medium hover:bg-white/[0.1] transition-colors mt-2"
+              >
+                <Github className="w-3.5 h-3.5" />
+                <span>View on GitHub</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+            <button
+              onClick={handleClose}
+              className="block mx-auto mt-2 text-xs text-gray-500 hover:text-white transition-colors cursor-pointer"
+            >
+              Close
+            </button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -119,6 +163,12 @@ export function FeedbackModal() {
                   Suggest features, report bugs, or share what you love
                 </p>
               </div>
+            </div>
+
+            {/* Info badge */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#00f0ff]/5 border border-[#00f0ff]/15 text-[10px] text-gray-400">
+              <Github className="w-3.5 h-3.5 text-[#00f0ff] shrink-0" />
+              <span>Your feedback will be submitted as a GitHub Issue for the dev team to track and respond.</span>
             </div>
 
             {/* Rating Stars */}
