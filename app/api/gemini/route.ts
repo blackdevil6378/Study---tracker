@@ -16,11 +16,11 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    let { action, model = "gemini-3.8-flash", contents, systemInstruction, attachments } = body;
+    let { action, model = "gemini-1.5-flash", contents, systemInstruction, attachments } = body;
 
-    // Auto-remap deprecated models
-    if (!model || model === "gemini-2.0-flash") {
-      model = "gemini-3.8-flash";
+    // Auto-remap non-existent models
+    if (!model || model.includes("3.8") || model.includes("2.5")) {
+      model = "gemini-1.5-flash";
     }
 
     // Support attachments (images / PDFs) as inlineData parts for Gemini

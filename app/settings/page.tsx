@@ -70,8 +70,8 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setStorageUsage(getLocalStorageUsage());
-    if (!settings.geminiModel || settings.geminiModel === "gemini-2.0-flash") {
-      updateSettings({ geminiModel: "gemini-3.8-flash" });
+    if (!settings.geminiModel || settings.geminiModel.includes("3.8") || settings.geminiModel.includes("2.5")) {
+      updateSettings({ geminiModel: "gemini-1.5-flash" });
     }
     if (!settings.groqModel || settings.groqModel === "mixtral-8x7b-32768") {
       updateSettings({ groqModel: "openai/gpt-oss-120b" });
@@ -107,10 +107,7 @@ export default function SettingsPage() {
         },
         body: JSON.stringify({
           action: "test",
-          model:
-            (settings.geminiModel === "gemini-2.0-flash"
-              ? "gemini-3.8-flash"
-              : settings.geminiModel) || "gemini-3.8-flash",
+          model: settings.geminiModel || "gemini-1.5-flash",
         }),
       });
 
@@ -558,15 +555,15 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between">
               <label className="text-xs text-gray-400">Gemini Model:</label>
               <span className="text-[11px] text-gray-500 font-mono">
-                Active: <span className="text-[#00f0ff]">{settings.geminiModel || "gemini-3.8-flash"}</span>
+                Active: <span className="text-[#00f0ff]">{settings.geminiModel || "gemini-1.5-flash"}</span>
               </span>
             </div>
 
             <div className="flex flex-wrap gap-2">
               {[
-                { id: "gemini-3.8-flash", label: "gemini-3.8-flash (Recommended)" },
-                { id: "gemini-2.5-flash", label: "gemini-2.5-flash" },
-                { id: "gemini-2.5-pro", label: "gemini-2.5-pro" },
+                { id: "gemini-1.5-flash", label: "gemini-1.5-flash (Recommended)" },
+                { id: "gemini-2.0-flash", label: "gemini-2.0-flash" },
+                { id: "gemini-1.5-pro", label: "gemini-1.5-pro" },
               ].map((m) => (
                 <button
                   key={m.id}
@@ -588,7 +585,7 @@ export default function SettingsPage() {
                 type="text"
                 value={settings.geminiModel}
                 onChange={(e) => updateSettings({ geminiModel: e.target.value })}
-                placeholder="gemini-3.8-flash"
+                placeholder="gemini-1.5-flash"
                 className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-white text-xs font-mono w-full sm:w-72 focus:outline-none focus:border-[#00f0ff]"
               />
               <span className="text-[11px] text-gray-500 font-mono hidden sm:inline">
